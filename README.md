@@ -10,7 +10,7 @@ Installation
 Documentation
 =====
 An interface description can be found in [docs](docs).
-The listing of all supported commands can be found in [https://kemptechnologies.github.io/powershell-sdk-vnext/ps-help.html]() #TODO
+The listing of all supported commands can be found in [https://kemptechnologies.github.io/powershell-sdk-vnext/ps-help.html](https://kemptechnologies.github.io/powershell-sdk-vnext/ps-help.html) #TODO
 
 
 Examples
