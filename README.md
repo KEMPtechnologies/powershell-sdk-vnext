@@ -6,9 +6,11 @@ This is a powershell wrapper around the KEMP RESTful API. It is considered a "re
 Installation 
 ============
 
-* Download the KEMP PowerShell module from this repository by checking the [releases](releases) section
+* Download the KEMP PowerShell module from this repository by checking the [releases](https://github.com/KEMPtechnologies/powershell-sdk-vnext/releases) section or by cloning this repository.
 
-* Install the module in a folder available in PSModulePath ($Env:PSModulePath). If PSModulePath does not contain the module folder value, add the module path to the in PSModulePath environment variable. The module path can be for the current user only or for all users. Recommended values are:
+* Install the module in a folder available in `PSModulePath` `($Env:PSModulePath)`. If `PSModulePath` does not contain the module folder value, add the module path to the in `PSModulePath` environment variable. The module path can be for the current user only or for all users. 
+
+Recommended values are:
 
 ```
 $home\Documents\WindowsPowerShell\Modules for the current User
@@ -16,7 +18,8 @@ $home\Documents\WindowsPowerShell\Modules for the current User
 $Env:ProgramFiles\WindowsPowerShell\Modules for All Users
 ```
 
-Example. Install the KEMP Powershell module for the current user only
+#### Examples
+Install the KEMP Powershell module for the current user only
 
 * Save the current value of PSModulePath
 
