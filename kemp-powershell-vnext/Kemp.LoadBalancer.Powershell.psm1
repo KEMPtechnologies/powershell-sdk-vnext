@@ -1,5 +1,5 @@
 #
-# $Id: Kemp.LoadBalancer.Powershell.psm1 15391 2017-06-15 14:24:23Z fcarpin $
+# $Id: Kemp.LoadBalancer.Powershell.psm1 15402 2017-06-19 19:57:07Z fcarpin $
 #
 
 $ScriptDir = Split-Path -parent $MyInvocation.MyCommand.Path
@@ -1344,7 +1344,22 @@ Function SetInstallTemplateReturnObject($xmlAnsw)
 # Internal use only
 Function SetGetTemplateReturnObject($xmlAnsw)
 {
-	GetPSObjectFromXml "Templates" $xmlAnsw.Response.Success.Data.template
+	$data = GetPSObjectFromXml "Templates" $xmlAnsw.Response.Success.Data.template
+
+	if ($data) {
+		$ht = [ordered]@{}
+		$ht.PSTypeName = "Template"
+		if ($data.template) {
+			$ht.add("Template", $data.template)
+		}
+		else {
+			$ht.add("Template", $data)
+		}
+		New-Object -TypeName PSObject -Property $ht
+	}
+	else {
+		return $null
+	}
 }
 
 # Internal use only
@@ -2349,6 +2364,19 @@ Function SetNewGlobalPacketFilterACLReturnObject($xmlAnsw)
 	return $null
 }
 
+# Internal use only
+Function SetGetClusterStatusReturnObject($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "ClusterConfiguration" $xmlAnsw.Response.Success.Data
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "ClusterConfiguration"
+
+	$ht.add("ClusterConfiguration", $data.status)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
 # Function "pointers" hashtable: success lm answer handlers
 $successHandlerList = [ordered]@{
 	GeneralCase = (gi function:SetGeneralCaseReturnObject)
@@ -2461,6 +2489,8 @@ $successHandlerList = [ordered]@{
 
 	GetLmDebugInformation = (gi function:SetGetLmDebugInformationReturnObject)
 	PingHost = (gi function:SetPingHostReturnObject)
+
+	GetClusterStatus = (gi function:SetGetClusterStatusReturnObject)
 }
 
 # Internal use only
@@ -2528,7 +2558,7 @@ Function HandleErrorAnswer($Command2ExecClass, $xmlAnsw)
 	#
 	switch ($Command2ExecClass)
 	{
-		{ ($_ -in "GeneralCase", "NewAdcVS", "GetAdcVS_Single", "GetAdcVS_List", "SetAdcVS", "NewAdcRS", "VirtualServiceRule", "RealServerRule", "EnableDisableRS", "GetSetAdcRS", "RemoveAdcRS", "AddAdcContentRule", "RemoveAdcContentRule", "SetAdcContentRule", "GetAdcContentRule", "GetAdcServiceHealth","AdcHttpExceptions", "AdcAdaptiveHealthCheck", "AdcWafVSRules", "AddRemoveAdcWafRule", "GetLicenseAccessKey", "GetLicenseType", "GetLicenseInfo", "RequestLicenseOnline", "RequestLicenseOffline", "UpdateLicenseOnline", "UpdateLicenseOffline", "RequestLicenseOnPremise", "GetAllSecUser", "GetSingleSecUser", "GetNetworkInterface", "GetAllParameters", "GetLmNetworkInterface", "GetTlsCertificate", "GetTlsCipherSet", "TlsHSM", "GetSSODomain", "GetSSOSamlDomain", "GetSSODomainLockedUser", "SetSSODomainLockedUser", "GetSSODomainSession", "InstallTemplate", "ExportVSTemplate", "GetTemplate", "GetLogStatistics", "GetWafRules", "GetWafRulesAutoUpdateConfiguration", "GetWafAuditFiles", "GetGeoFQDN", "AddGeoCluster", "SetGeoCluster", "AddNetworkVxLAN", "AddNetworkVLAN", "GetNetworkRoute", "TestNetworkRoute", "GetHosts", "GetVSTotals", "GetLdapEndpoint", "GetVpnConnection", "InstallLmAddon", "GetLmAddOn", "InstallLmPatch", "UninstallLmPatch", "GetLmPreviousFirmwareVersion", "AddSdnController", "SetSdnController", "GetSdnController", "RemoveSdnController", "GetAdcRealServer", "SetGeoFQDNSiteAddress", "GetGeoCustomLocation", "GetGeoIpRange", "TestLmGeoEnabled", "GetGeoPartnerStatus", "GetGeoIPBlacklistDatabaseConfiguration", "GetGeoIPWhitelist", "ExportGeoIPWhitelistDatabase", "GetGeoDNSSECConfiguration", "GetGeoLmMiscParameter", "GetVSPacketFilterACL", "GetPacketFilterOption", "GetGlobalPacketFilterACL", "GetLmIPConnectionLimit", "GetAzureHAConfiguration", "GetAwsHaConfiguration", "GetLmDebugInformation", "GetAslLicenseType", "GetLmVpnIkeDaemonStatus", "NewLmVpnConnection") } {
+		{ ($_ -in "GeneralCase", "NewAdcVS", "GetAdcVS_Single", "GetAdcVS_List", "SetAdcVS", "NewAdcRS", "VirtualServiceRule", "RealServerRule", "EnableDisableRS", "GetSetAdcRS", "RemoveAdcRS", "AddAdcContentRule", "RemoveAdcContentRule", "SetAdcContentRule", "GetAdcContentRule", "GetAdcServiceHealth","AdcHttpExceptions", "AdcAdaptiveHealthCheck", "AdcWafVSRules", "AddRemoveAdcWafRule", "GetLicenseAccessKey", "GetLicenseType", "GetLicenseInfo", "RequestLicenseOnline", "RequestLicenseOffline", "UpdateLicenseOnline", "UpdateLicenseOffline", "RequestLicenseOnPremise", "GetAllSecUser", "GetSingleSecUser", "GetNetworkInterface", "GetAllParameters", "GetLmNetworkInterface", "GetTlsCertificate", "GetTlsCipherSet", "TlsHSM", "GetSSODomain", "GetSSOSamlDomain", "GetSSODomainLockedUser", "SetSSODomainLockedUser", "GetSSODomainSession", "InstallTemplate", "ExportVSTemplate", "GetTemplate", "GetLogStatistics", "GetWafRules", "GetWafRulesAutoUpdateConfiguration", "GetWafAuditFiles", "GetGeoFQDN", "AddGeoCluster", "SetGeoCluster", "AddNetworkVxLAN", "AddNetworkVLAN", "GetNetworkRoute", "TestNetworkRoute", "GetHosts", "GetVSTotals", "GetLdapEndpoint", "GetVpnConnection", "InstallLmAddon", "GetLmAddOn", "InstallLmPatch", "UninstallLmPatch", "GetLmPreviousFirmwareVersion", "AddSdnController", "SetSdnController", "GetSdnController", "RemoveSdnController", "GetAdcRealServer", "SetGeoFQDNSiteAddress", "GetGeoCustomLocation", "GetGeoIpRange", "TestLmGeoEnabled", "GetGeoPartnerStatus", "GetGeoIPBlacklistDatabaseConfiguration", "GetGeoIPWhitelist", "ExportGeoIPWhitelistDatabase", "GetGeoDNSSECConfiguration", "GetGeoLmMiscParameter", "GetVSPacketFilterACL", "GetPacketFilterOption", "GetGlobalPacketFilterACL", "GetLmIPConnectionLimit", "GetAzureHAConfiguration", "GetAwsHaConfiguration", "GetLmDebugInformation", "GetAslLicenseType", "GetLmVpnIkeDaemonStatus", "NewLmVpnConnection", "GetClusterStatus") } {
 			$errMsg = $xmlAnsw.Response.Error
 		}
 
@@ -20416,8 +20446,7 @@ Function Get-ClusterStatus
 	
 	try {
 		$response = SendCmdToLm -Command "cluster/status" -ParameterValuePair $params -ConnParams $ConnParams
-		# FIXME to add the proper handling function
-		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+		HandleLmAnswer -Command2ExecClass "GetClusterStatus" -LMResponse $response
 	}
 	catch {
 		$errMsg = $_.Exception.Message
@@ -20687,8 +20716,8 @@ Export-ModuleMember -function Remove-ClusterNode, NMDeleteNode
 # SIG # Begin signature block
 # MIIcDAYJKoZIhvcNAQcCoIIb/TCCG/kCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCDeo3ZD5JfzQXJA
-# KdQbl2knf443NE0k+GtOo6e7i6Bk26CCCuMwggVWMIIEPqADAgECAhAZGjLLdZyX
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCAsxuEUoEg+R+hB
+# fdQIylklytkLN692oopIhgxqC7iACqCCCuMwggVWMIIEPqADAgECAhAZGjLLdZyX
 # uM+sEY3VEn9JMA0GCSqGSIb3DQEBCwUAMIHKMQswCQYDVQQGEwJVUzEXMBUGA1UE
 # ChMOVmVyaVNpZ24sIEluYy4xHzAdBgNVBAsTFlZlcmlTaWduIFRydXN0IE5ldHdv
 # cmsxOjA4BgNVBAsTMShjKSAyMDA2IFZlcmlTaWduLCBJbmMuIC0gRm9yIGF1dGhv
@@ -20752,17 +20781,17 @@ Export-ModuleMember -function Remove-ClusterNode, NMDeleteNode
 # bGFzcyAzIEV4dGVuZGVkIFZhbGlkYXRpb24gQ29kZSBTaWduaW5nIENBIC0gRzIC
 # ECeDjyzMAJ09C7Adbyi1uUkwDQYJYIZIAWUDBAIBBQCgfDAQBgorBgEEAYI3AgEM
 # MQIwADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4w
-# DAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQxIgQg7pFBHfqyFtOJwPR2HL1WJGRO
-# sLPur7s6ZJDbRE49McYwDQYJKoZIhvcNAQEBBQAEggEAv34YHLT1y3DZmNx/l21/
-# SKc6aZ0biTiRWGnjNyCLFLUJywERsSzgasg9KakgZOneeg0jkENTXPLLZx8p3Qw5
-# eCb6lbztvTgyJqRMzdqhIK20NAQ2+6wyxTwnEQY/0O8ny4w11QfwYLopNP7vzCD7
-# Gsv7zs5a6WPGfJM5XqCTmg2X+QWcaP/qVzvFChweG3d0RpZZQKkN1WiVhucLsWPO
-# iXerMBU18EiAaA1/urtFWvjzgm9R2/r1GYgqFknt986PNApSu9jHJs+R91x3H0b4
-# aQQOF86Esa8SRNn0hjSKpeK0b+SnK4RP2OGNPsDFFRhgsImjg7Y3OJS9fZVtiL3i
-# FKGCDiswgg4nBgorBgEEAYI3AwMBMYIOFzCCDhMGCSqGSIb3DQEHAqCCDgQwgg4A
+# DAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQxIgQg5tpULs2gaCdLo9YSodB15mvh
+# mV+zhzSe2ORQQS/qjlwwDQYJKoZIhvcNAQEBBQAEggEAxstvfL3Mz4TE3TExbfRU
+# rpV68eoFlyLbcdOiisGFfs2wHgSUlWScQn6nRjQ91XP+vbT6rXXMohSIgEyI3Z4b
+# FCdBqsBatoelJUCQn4omuNmixBRbpBoDM7DyrPQJeutJ9NNNrG6qFistXYEhapkq
+# QUk08HrQZAZdRcuFyErTDqgv7/lHBRH1wsasfY31AYggQnWJ04tZtpfTGXUf5qQc
+# cwLEil98+4LmSKjijOOlDFmeoGtrdJwTWeThYwG1Tgi8ANwMo8ArUe+jflWsv0yN
+# reYYkGYOdvLIg/MDiXScxF1U4laEOTiAj2osa6iAIUA2wleR+rC6CdJQyQjng9+8
+# gqGCDiswgg4nBgorBgEEAYI3AwMBMYIOFzCCDhMGCSqGSIb3DQEHAqCCDgQwgg4A
 # AgEDMQ0wCwYJYIZIAWUDBAIBMIH+BgsqhkiG9w0BCRABBKCB7gSB6zCB6AIBAQYL
-# YIZIAYb4RQEHFwMwITAJBgUrDgMCGgUABBQKzJxzth8OzJFKwVoOvukd5cO8iAIU
-# AQHSYzlZgFwnLeJcqkxJ0vIQXWQYDzIwMTcwNjE2MTQzNTAwWjADAgEeoIGGpIGD
+# YIZIAYb4RQEHFwMwITAJBgUrDgMCGgUABBQqaNGBDxqp7PC5il8XqffIv5rB5QIU
+# Ce8iCIjcVK3Z1x6lSib3BSj2GegYDzIwMTcwNjIxMTk1MTQ4WjADAgEeoIGGpIGD
 # MIGAMQswCQYDVQQGEwJVUzEdMBsGA1UEChMUU3ltYW50ZWMgQ29ycG9yYXRpb24x
 # HzAdBgNVBAsTFlN5bWFudGVjIFRydXN0IE5ldHdvcmsxMTAvBgNVBAMTKFN5bWFu
 # dGVjIFNIQTI1NiBUaW1lU3RhbXBpbmcgU2lnbmVyIC0gRzKgggqLMIIFODCCBCCg
@@ -20826,13 +20855,13 @@ Export-ModuleMember -function Remove-ClusterNode, NMDeleteNode
 # ZWMgQ29ycG9yYXRpb24xHzAdBgNVBAsTFlN5bWFudGVjIFRydXN0IE5ldHdvcmsx
 # KDAmBgNVBAMTH1N5bWFudGVjIFNIQTI1NiBUaW1lU3RhbXBpbmcgQ0ECEFRY8qrX
 # QdZEvISpe6CWUuYwCwYJYIZIAWUDBAIBoIGkMBoGCSqGSIb3DQEJAzENBgsqhkiG
-# 9w0BCRABBDAcBgkqhkiG9w0BCQUxDxcNMTcwNjE2MTQzNTAwWjAvBgkqhkiG9w0B
-# CQQxIgQg6TvyB2KFGhYr9sz4IFosbEFawK4KCel08L7VuuwVktgwNwYLKoZIhvcN
+# 9w0BCRABBDAcBgkqhkiG9w0BCQUxDxcNMTcwNjIxMTk1MTQ4WjAvBgkqhkiG9w0B
+# CQQxIgQgeK/VM/W1/QhWkcmDtecVfOjirGGXDE2zJFvT7PMYIt4wNwYLKoZIhvcN
 # AQkQAi8xKDAmMCQwIgQgz3rBetBH7NX9w2giAxsS1O8Hi28rTF5rpB+P8s9LrWcw
-# CwYJKoZIhvcNAQEBBIIBAHeLXYeMPxGMX4IEOb5HBJBprl5ifBj9rRFYf9DMqsAv
-# Bls+agrLp8qc5P76BvrcUUBxLJMOvcabdaImxZWxdx66Qrg3CscauhHi40VB3oUs
-# eSPBl6QXlHwlsfiuWMRjCmTGluSmFK/IfaibL5PDraFyDXFvAwnF10rljX7kgDsm
-# D6u0yG0Ha6p7M+WCQx/az60c5GkxXr5q3O5DkRiNQ79CPqmy/zefz2XBUl7A1awc
-# xBA7QVgrhyybYpcacEumRWZbWWbO6UvAZNMzEN9xHavhHg6IJeS3jO2zyxbS3Bgm
-# hFiNmr8W/PzqWi/1hJzys0mVglwo8xhcRHuBU4LSVl4=
+# CwYJKoZIhvcNAQEBBIIBAEzfZRQtobE4nncMIxyxhE7dnPYpco7+pvMxqGNU3CaC
+# JlrapsmRXbuItMXWsUhf0i9K0PI90GclZp8GTxozx3cN937S8/oQYI7QkjRPbWxR
+# lbQPiPc8V7ZOUl78taiin583gjJPxpebaEHu/Pq6ITu9FxwT97Yw3jSqzFayN4yM
+# r/tNBzvXInhpI2Vd/mwX0S8pg8x68GmLiv5Ji6E0X/Lm+If3wZbsOh1+GiIRQ+4r
+# Euh6CHglMwoHVGrtVM+Wn127bJDl/8696Xyf+JhoKpwWP7jC9b6xcShCZFFjF2+j
+# yySHJSi7lOUCqqyMKmtW9UYRb2RmljV5q+UJ3y00xsA=
 # SIG # End signature block
