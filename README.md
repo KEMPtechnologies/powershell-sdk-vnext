@@ -5,7 +5,47 @@ This is a powershell wrapper around the KEMP RESTful API. It is considered a "re
 
 Installation 
 ============
-#TODO
+
+* Download the KEMP PowerShell module from this repository by checking the [releases](releases) section
+
+* Install the module in a folder available in PSModulePath ($Env:PSModulePath). If PSModulePath does not contain the module folder value, add the module path to the in PSModulePath environment variable. The module path can be for the current user only or for all users. Recommended values are:
+
+```
+$home\Documents\WindowsPowerShell\Modules for the current User
+
+$Env:ProgramFiles\WindowsPowerShell\Modules for All Users
+```
+
+Example. Install the KEMP Powershell module for the current user only
+
+* Save the current value of PSModulePath
+
+```$mpath = [Environment]::GetEnvironmentVariable("PSModulePath")```
+
+* Add the new path to the $mpath variable
+
+```$ mpath += ";$home\Documents\WindowsPowerShell\Modules\Kemp.LoadBalancer.Powershell"```
+
+* Add the paths in $currValue to the PSModulePath value.
+
+```[Environment]::SetEnvironmentVariable("PSModulePath", $currValue)```
+
+Import the module to start using it
+
+```
+Import-Module Kemp.LoadBalancer.Powershell
+
+Get-Module Kemp.LoadBalancer.Powershell
+
+ModuleType Version Name ExportedCommands
+
+---------- ------- ---- ----------------
+
+Script 7.2.39.0 Kemp.LoadBalancer.Powershell {Add-BondedInterface, A...
+```
+* To retrieve the list of the available commands, run the following commands
+
+```Get-Command -Module Kemp.LoadBalancer.Powershell```
 
 Documentation
 =====
