@@ -18,7 +18,6 @@ $home\Documents\WindowsPowerShell\Modules for the current User
 $Env:ProgramFiles\WindowsPowerShell\Modules for All Users
 ```
 
-#### Examples
 Install the KEMP Powershell module for the current user only
 
 * Save the current value of PSModulePath
@@ -53,12 +52,12 @@ Script 7.2.39.0 Kemp.LoadBalancer.Powershell {Add-BondedInterface, A...
 Documentation
 =====
 An interface description can be found in [docs](docs).
-The listing of all supported commands can be found in [https://kemptechnologies.github.io/powershell-sdk-vnext/ps-help.html](https://kemptechnologies.github.io/powershell-sdk-vnext/ps-help.html) #TODO
+The listing of all supported commands can be found in [https://kemptechnologies.github.io/powershell-sdk-vnext/ps-help.html](https://kemptechnologies.github.io/powershell-sdk-vnext/ps-help.html) 
 
 
 Examples
 =====
-TODO
+Examples can be found in the [examples](examples) folder
 
 Contributions
 =============
@@ -74,7 +73,7 @@ If you believe you've found a bug please create an issue. We may not get to it r
 
 Changelog
 =========
-TODO
+6/21 - Initial upload to Github. Includes examples, readmes and other helpful content
 
 Core Contributors
 ============
