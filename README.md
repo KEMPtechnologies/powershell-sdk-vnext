@@ -2,6 +2,8 @@ KEMP PowerShell vNext SDK
 ====================
 This is a powershell wrapper around the KEMP RESTful API. It is considered a "release candidate." This means that the team behind its engineering has a have a high level of assurance in its quality but would prefer to obtain feedback from the user community before releasing it as an official replacement for our current powershell wrapper.
 
+If you have any thoughts that you would like to share we welcome your [issues](https://github.com/KEMPtechnologies/powershell-sdk-vnext/issues)
+
 
 Installation 
 ============
