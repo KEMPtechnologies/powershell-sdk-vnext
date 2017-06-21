@@ -1,4 +1,4 @@
-KEMP API Python SDK
+KEMP PowerShell vNext SDK
 ====================
 This is a powershell wrapper around the KEMP RESTful API. It is considered a "release candidate." This means that the team behind its engineering has a have a high level of assurance in its quality but would prefer to obtain feedback from the user community before releasing it as an official replacement for our current powershell wrapper.
 
@@ -66,7 +66,6 @@ If you're interested in contributing to this project, please read:
 
 * If you'd like to contribute but would like help, please open an issue.
 * All code contributions require test coverage. If a pull request is lacking tests, it will be closed.
-* Docstrings are welcomed. We auto-gen docs into the `gh-pages` branch using [Travis](https://travis-ci.org/KEMPtechnologies/python-kemptech-api). 
 * If you're submitting a feature, please clearly explain its use case in your pull request. Our team gets warm and fuzzies every time a contribution is made and explanations help greatly.
 
 Bugs
