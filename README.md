@@ -14,11 +14,9 @@ Installation
 
 Recommended values are:
 
-```
-$home\Documents\WindowsPowerShell\Modules for the current User
+`$home\Documents\WindowsPowerShell\Modules` for the current User
 
-$Env:ProgramFiles\WindowsPowerShell\Modules for All Users
-```
+`$Env:ProgramFiles\WindowsPowerShell\Modules` for All Users
 
 Install the KEMP Powershell module for the current user only
 
