@@ -4,6 +4,8 @@ This is a powershell wrapper around the KEMP RESTful API. It is considered a "re
 
 If you have any thoughts that you would like to share we welcome your [issues](https://github.com/KEMPtechnologies/powershell-sdk-vnext/issues)
 
+Note: If you are using a previous version of the KEMP powershell plugin it should be noted that this version has __breaking changes.__ We look to have a full document outlining these changes in the near future. If you have additional questions please use our 
+[issues](https://github.com/KEMPtechnologies/powershell-sdk-vnext/issues)
 
 Installation 
 ============
