@@ -1,16 +1,16 @@
 KEMP PowerShell vNext SDK
 ====================
-This is a powershell wrapper around the KEMP RESTful API. It is considered a "release candidate." This means that the team behind its engineering has a have a high level of assurance in its quality but would prefer to obtain feedback from the user community before releasing it as an official replacement for our current powershell wrapper.
+This is a PowerShell wrapper around the KEMP RESTful API. It is considered a "release candidate." This means that the team behind its engineering has a high level of assurance in its quality but would prefer to obtain feedback from the user community before releasing it as an official replacement for our current PowerShell wrapper.
 
-If you have any thoughts that you would like to share we welcome your [issues](https://github.com/KEMPtechnologies/powershell-sdk-vnext/issues)
+If you have any thoughts that you would like to share we welcome your [feedback](https://github.com/KEMPtechnologies/PowerShell-sdk-vnext/issues)
 
-Note: If you are using a previous version of the KEMP powershell plugin it should be noted that this version has __breaking changes.__ We look to have a full document outlining these changes in the near future. If you have additional questions please use our 
-[issues](https://github.com/KEMPtechnologies/powershell-sdk-vnext/issues)
+Note: If you are using a previous version of the KEMP PowerShell plugin it should be noted that this version has __breaking changes__ and in many cases is __not forward compatible__. We look to have a full document outlining these changes in the near future. If you have additional questions please use our 
+[issues](https://github.com/KEMPtechnologies/PowerShell-sdk-vnext/issues)
 
 Installation 
 ============
 
-* Download the KEMP PowerShell module from this repository by checking the [releases](https://github.com/KEMPtechnologies/powershell-sdk-vnext/releases) section or by cloning this repository.
+* Download the KEMP PowerShell module from this repository by checking the [releases](https://github.com/KEMPtechnologies/PowerShell-sdk-vnext/releases) section or by cloning this repository.
 
 * Install the module in a folder available in `PSModulePath` `($Env:PSModulePath)`. If `PSModulePath` does not contain the module folder value, add the module path to the in `PSModulePath` environment variable. The module path can be for the current user only or for all users. 
 
@@ -20,7 +20,7 @@ Recommended values are:
 
 `$Env:ProgramFiles\WindowsPowerShell\Modules` for All Users
 
-Install the KEMP Powershell module for the current user only
+Install the KEMP PowerShell module for the current user only
 
 * Save the current value of PSModulePath
 
@@ -28,7 +28,7 @@ Install the KEMP Powershell module for the current user only
 
 * Add the new path to the $mpath variable
 
-```$ mpath += ";$home\Documents\WindowsPowerShell\Modules\Kemp.LoadBalancer.Powershell"```
+```$ mpath += ";$home\Documents\WindowsPowerShell\Modules\Kemp.LoadBalancer.PowerShell"```
 
 * Add the paths in $currValue to the PSModulePath value.
 
@@ -37,24 +37,24 @@ Install the KEMP Powershell module for the current user only
 Import the module to start using it
 
 ```
-Import-Module Kemp.LoadBalancer.Powershell
+Import-Module Kemp.LoadBalancer.PowerShell
 
-Get-Module Kemp.LoadBalancer.Powershell
+Get-Module Kemp.LoadBalancer.PowerShell
 
 ModuleType Version Name ExportedCommands
 
 ---------- ------- ---- ----------------
 
-Script 7.2.39.0 Kemp.LoadBalancer.Powershell {Add-BondedInterface, A...
+Script 7.2.39.0 Kemp.LoadBalancer.PowerShell {Add-BondedInterface, A...
 ```
 * To retrieve the list of the available commands, run the following commands
 
-```Get-Command -Module Kemp.LoadBalancer.Powershell```
+```Get-Command -Module Kemp.LoadBalancer.PowerShell```
 
 Documentation
 =====
 An interface description can be found in [docs](docs).
-The listing of all supported commands can be found in [https://kemptechnologies.github.io/powershell-sdk-vnext/ps-help.html](https://kemptechnologies.github.io/powershell-sdk-vnext/ps-help.html) 
+The listing of all supported commands can be found in [https://kemptechnologies.github.io/PowerShell-sdk-vnext/ps-help.html](https://kemptechnologies.github.io/PowerShell-sdk-vnext/ps-help.html) 
 
 
 Examples
@@ -65,9 +65,8 @@ Contributions
 =============
 If you're interested in contributing to this project, please read: 
 
-* If you'd like to contribute but would like help, please open an issue.
 * All code contributions require test coverage. If a pull request is lacking tests, it will be closed.
-* If you're submitting a feature, please clearly explain its use case in your pull request. Our team gets warm and fuzzies every time a contribution is made and explanations help greatly.
+* If you're submitting a feature, please clearly explain its use case in your issue. Our team gets warm and fuzzies every time a contribution is made and explanations help greatly.
 
 Bugs
 =====
