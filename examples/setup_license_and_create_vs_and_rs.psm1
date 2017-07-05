@@ -29,8 +29,9 @@ if ($ceula.ReturnCode -ne 200) {
     return $ceula
 }
 # (5) CONFIRM/NOT CONFIRM the EULA2 (your choice)
-#$accept = “yes”
-$accept = “no”
+# 'Stating "yes" to EULA2 means that your LoadMaster will send data back home to KEMP anonymously in order to improve our product usage knowledge. If this value is set to "no" your LoadMaster will not send this data. Note: A "no" setting will disable notifications regarding new releases in the LoadMaster WUI.'
+$accept = “yes”
+#$accept = “no”
 $ceula2 = Confirm-LicenseEULA2 -Magic $ceula.Data.Eula2.MagicString `
               -Accept $accept -LoadBalancer $LMIP -Credential $creds
 if ($ceula2.ReturnCode -ne 200) {
