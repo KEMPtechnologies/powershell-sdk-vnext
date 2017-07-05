@@ -4,8 +4,8 @@
 ##########
 
 # (1) CREATE THE CREDENTIALS
-$passwd = ConvertTo-SecureString "<<your password>>" -AsPlainText -Force
-$creds = New-Object System.Management.Automation.PSCredential("bal", $passwd)
+$LMPASSWD = ConvertTo-SecureString "<<your password>>" -AsPlainText -Force
+$creds = New-Object System.Management.Automation.PSCredential("bal", $LMPASSWD)
 $LMIP = <<LoadMaster IP address>>
 $KEMPID = <<Customer KEMP ID>>
 $KEMPPASSWD = <<Customer KEMP PASSWORD>>
@@ -45,7 +45,7 @@ if ($lic.ReturnCode -ne 200) {
     return $lic
 }
 # (7) SET the Initial Password
-$setp = Set-LicenseInitialPassword -Passwd $passwd -LoadBalancer $LMIP `
+$setp = Set-LicenseInitialPassword -Passwd $LMPASSWD -LoadBalancer $LMIP `
                                                       -Credential $creds
 if ($setp .ReturnCode -ne 200) {
     # ERROR: exit
