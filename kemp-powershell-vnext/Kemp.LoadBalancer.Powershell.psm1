@@ -1,5 +1,5 @@
 #
-# $Id: Kemp.LoadBalancer.Powershell.psm1 15445 2017-07-03 18:31:05Z fcarpin $
+# $Id: Kemp.LoadBalancer.Powershell.psm1 16291 2018-05-10 16:04:55Z fcarpin $
 #
 
 $ScriptDir = Split-Path -parent $MyInvocation.MyCommand.Path
@@ -1056,6 +1056,29 @@ Function SetGetSecUserReturnObject($xmlAnsw)
 }
 
 # Internal use only
+Function SetGetRemoteGroupReturnObject($xmlAnsw)
+{
+	$remoteGroupConf = [ordered]@{}
+	$remoteGroupConf.PSTypeName = "RemoteGroupSettings"
+
+	$remoteGroupData = GetPSObjectFromXml "RemoteGroupSettings" $xmlAnsw.Response.Success.Data.RemoteUserGroup
+	if ($remoteGroupData) {
+	
+		if ($remoteGroupData.RemoteUserGroup) {
+			foreach ($user in $remoteGroupData.RemoteUserGroup) {
+				$user.Perms = $user.Perms.Trim(",", " ")
+			}
+			$remoteGroupConf.Add("RemoteGroupSettings", $remoteGroupData.RemoteUserGroup) | Out-null
+		}
+		else {
+			$remoteGroupData.Perms = $remoteGroupData.Perms.Trim(",", " ")
+			$remoteGroupConf.Add("RemoteGroupSettings", $remoteGroupData) | Out-null
+		}
+	}
+	New-Object -TypeName PSObject -Property $remoteGroupConf
+}
+
+# Internal use only
 Function SetNetworkInterfaceReturnObject($xmlAnsw, $interfaceId)
 {
 	$networkInterfaceData = GetPSObjectFromXml "NetworkInterfaceSettings" $xmlAnsw.Response.Success.Data.Interface
@@ -1553,6 +1576,18 @@ Function SetGetGeoFqdnReturnObject($xmlAnsw)
 	else {
 		$ht.add("GeoFqdn", $data)
 	}
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
+# Internal use only
+Function SetGetGeoStatsReturnObject($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "GeoStats" $xmlAnsw.Response.Success.Data
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "GeoStats"
+	$ht.add("GeoStats", $data)
 
 	New-Object -TypeName PSObject -Property $ht
 }
@@ -2184,12 +2219,88 @@ Function SetGetLmIPConnectionLimitReturnObject($xmlAnsw)
 }
 
 # Internal use only
+Function SetGetCloudHAConfigurationReturnObject($xmlAnsw)
+{
+	if ($xmlAnsw.Response.Success.Data.AzureHA) {
+		return SetGetAzureHAConfigurationReturnObject $xmlAnsw
+	}
+
+	if ($xmlAnsw.Response.Success.Data.AwsHA) {
+		return SetGetAwsHAConfigurationReturnObject $xmlAnsw
+	}
+
+	$tmp = $xmlAnsw.Response.Success.Data
+	try {
+		$check = $tmp.InnerXml
+		if ($check) {
+			if ($check.Contains("cloud")) {
+				$index1 = $check.IndexOf("cloud")
+				$index2 = $check.IndexOf(">")
+				$cloudName = $check.Substring($index1, $index2 - $index1)
+			}
+			elseif ($check.Contains("Cloud")) {
+				$index1 = $check.IndexOf("Cloud")
+				$index2 = $check.IndexOf(">")
+				$cloudName = $check.Substring($index1, $index2 - $index1)
+			}
+			elseif ($check.Contains("CLOUD")) {
+				$index1 = $check.IndexOf("CLOUD")
+				$index2 = $check.IndexOf(">")
+				$cloudName = $check.Substring($index1, $index2 - $index1)
+			}
+			else {
+				$index1 = $check.IndexOf("<")
+				$index2 = $check.IndexOf(">")
+				$cloudName = $check.Substring($index1 + 1, $index2 - $index1 - 1)
+			}
+		}
+		if ($cloudName) {
+			$data = GetPSObjectFromXml "$cloudName" $xmlAnsw.Response.Success.Data."$cloudName"
+			if ($data.Port) {
+				renameCustomObjectProperty $data "Port" "HealthCheckPort"
+			}
+			if ($data.HaPrefered) {
+				renameCustomObjectProperty $data "HaPrefered" "Hapreferred"
+			}
+			if ($data.HealthCheckAllInterfaces) {
+				if ($data.HealthCheckAllInterfaces -eq "unset") {
+					$data.HealthCheckAllInterfaces = "no"
+				}
+			}
+			$ht = [ordered]@{}
+			$ht.PSTypeName = "$cloudName" + "Configuration"
+			$ht.add("$cloudName" + "Configuration", $data)
+
+			New-Object -TypeName PSObject -Property $ht
+
+			return
+		}
+	}
+	catch {
+		Throw "Unknow cloud platform or not a cloud VLM."
+		return
+	}
+	Throw "Unknow cloud platform or not a cloud VLM."
+	return
+}
+
+# Internal use only
 Function SetGetAzureHAConfigurationReturnObject($xmlAnsw)
 {
 	$data = GetPSObjectFromXml "AzureHAConfiguration" $xmlAnsw.Response.Success.Data.AzureHA
 
 	if ($data.Port) {
 		renameCustomObjectProperty $data "Port" "HealthCheckPort"
+	}
+
+	if ($data.HaPrefered) {
+		renameCustomObjectProperty $data "HaPrefered" "Hapreferred"
+	}
+
+	if ($data.HealthCheckAllInterfaces) {
+		if ($data.HealthCheckAllInterfaces -eq "unset") {
+			$data.HealthCheckAllInterfaces = "no"
+		}
 	}
 
 	$ht = [ordered]@{}
@@ -2208,11 +2319,32 @@ Function SetGetAwsHAConfigurationReturnObject($xmlAnsw)
 		renameCustomObjectProperty $data "Port" "HealthCheckPort"
 	}
 
+	if ($data.HealthCheckAllInterfaces) {
+		if ($data.HealthCheckAllInterfaces -eq "unset") {
+			$data.HealthCheckAllInterfaces = "no"
+		}
+	}
+
 	$ht = [ordered]@{}
 	$ht.PSTypeName = "AwsHAConfiguration"
 	$ht.add("AwsHAConfiguration", $data)
 
 	New-Object -TypeName PSObject -Property $ht
+}
+
+# Internal use only
+Function SetGetLmCloudHaConfiguration($xmlAnsw)
+{
+	if ($xmlAnsw.Response.Success.Data.AzureHA) {
+		return SetGetAzureHAConfigurationReturnObject $xmlAnsw
+	}
+
+	if ($xmlAnsw.Response.Success.Data.AwsHA) {
+		return SetGetAwsHAConfigurationReturnObject $xmlAnsw
+	}
+
+	Throw "Unknow cloud platform or not a cloud VLM."
+	return
 }
 
 # Internal use only
@@ -2294,7 +2426,7 @@ Function SetGetAslLicenseTypeReturnObject($xmlAnsw)
 	$ht.PSTypeName = "AslLicenseType"
 
 	if ($data.Contains("License type information not available")) {
-		$ht.add("LicenseData", "License type information not available. Please check your kempid and/or password.")
+		$ht.add("License", $data)
 	}
 	elseif ($data -ne "[]") {
 		$TempLicObject = $data | ConvertFrom-Json
@@ -2304,23 +2436,26 @@ Function SetGetAslLicenseTypeReturnObject($xmlAnsw)
 		if (([String]::IsNullOrEmpty($licNumber))) {
 			$licNumber = 1
 		}
-		$LicObject.Add("OrderID", $OrderId)
+		#$LicObject.Add("OrderID", $OrderId)
 		$LicObject.Add("AvailableLicenses", $licNumber)
 		$LicObject.Add("Licenses", $TempLicObject.categories.licenseTypes)
 
 		$licData = New-Object -TypeName PSObject -Prop $LicObject
 
-		$ht.add("LicenseData", $licData)
+		$ht.add("License", $licData.Licenses)
+		$ht.add("AvailableLicenses", $licData.AvailableLicenses)
 	}
 	else {
+		# No licenses available
 		$emptyLicObject = [ordered]@{}
 		$emptyLicObject.PSTypeName = "LicenseData"
-		$emptyLicObject.Add("OrderID", $OrderId)
+		#$emptyLicObject.Add("OrderID", $OrderId)
 		$emptyLicObject.Add("AvailableLicenses", 0)
 		$emptyLicObject.Add("Licenses", $null)
 		$licData = New-Object -TypeName PSObject -Prop $emptyLicObject
 
-		$ht.add("LicenseData", $licData)
+		$ht.add("License", $licData)
+		$ht.add("AvailableLicenses", 0)
 	}
 	New-Object -TypeName PSObject -Property $ht
 }
@@ -2390,6 +2525,32 @@ Function SetNewClusterReturnObject($xmlAnsw)
 	New-Object -TypeName PSObject -Property $ht
 }
 
+# Internal use only
+Function SetGetRaidControllerReturnObject($xmlAnsw)
+{
+	$data = $xmlAnsw.Response.Success.Data
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "RaidController"
+
+	$ht.add("RaidController", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
+# Internal use only
+Function SetGetRaidControllerDiskReturnObject($xmlAnsw)
+{
+	$data = $xmlAnsw.Response.Success.Data
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "RaidControllerDisk"
+
+	$ht.add("RaidControllerDisk", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
 # Function "pointers" hashtable: success lm answer handlers
 $successHandlerList = [ordered]@{
 	GeneralCase = (gi function:SetGeneralCaseReturnObject)
@@ -2422,6 +2583,9 @@ $successHandlerList = [ordered]@{
 
 	GetAllSecUser = (gi function:SetGetSecUserReturnObject)
 	GetSingleSecUser = (gi function:SetGetSecUserReturnObject)
+
+	GetRemoteGroup = (gi function:SetGetRemoteGroupReturnObject)
+	GetAllRemoteGroups = (gi function:SetGetRemoteGroupReturnObject)
 
 	GetNetworkInterface = (gi function:SetNetworkInterfaceReturnObject)
 	GetLmNetworkInterface = (gi function:SetGetLmNetworkInterfaceReturnObject)
@@ -2487,6 +2651,7 @@ $successHandlerList = [ordered]@{
 	ExportGeoIPWhitelistDatabase = (gi function:SetExportGeoIPWhitelistDatabaseReturnObject)
 	GetGeoDNSSECConfiguration = (gi function:SetGetGeoDNSSECConfigurationReturnObject)
 	GetGeoLmMiscParameter = (gi function:SetGetGeoLmMiscParameterReturnObject)
+	GetGeoStats = (gi function:SetGetGeoStatsReturnObject)
 
 	GetVSPacketFilterACL = (gi function:SetGetVSPacketFilterACLReturnObject)
 	NewVSPacketFilterACL = (gi function:SetNewVSPacketFilterACLReturnObject)
@@ -2499,12 +2664,16 @@ $successHandlerList = [ordered]@{
 
 	GetAzureHAConfiguration = (gi function:SetGetAzureHAConfigurationReturnObject)
 	GetAwsHaConfiguration = (gi function:SetGetAwsHAConfigurationReturnObject)
+	GetLmCloudHaConfiguration = (gi function:SetGetCloudHAConfigurationReturnObject)
 
 	GetLmDebugInformation = (gi function:SetGetLmDebugInformationReturnObject)
 	PingHost = (gi function:SetPingHostReturnObject)
 
 	NewCluster = (gi function:SetNewClusterReturnObject)
 	GetClusterStatus = (gi function:SetGetClusterStatusReturnObject)
+
+	GetRaidController = (gi function:SetGetRaidControllerReturnObject)
+	GetRaidControllerDisk = (gi function:SetGetRaidControllerDiskReturnObject)
 }
 
 # Internal use only
@@ -2572,7 +2741,7 @@ Function HandleErrorAnswer($Command2ExecClass, $xmlAnsw)
 	#
 	switch ($Command2ExecClass)
 	{
-		{ ($_ -in "GeneralCase", "NewAdcVS", "GetAdcVS_Single", "GetAdcVS_List", "SetAdcVS", "NewAdcRS", "VirtualServiceRule", "RealServerRule", "EnableDisableRS", "GetSetAdcRS", "RemoveAdcRS", "AddAdcContentRule", "RemoveAdcContentRule", "SetAdcContentRule", "GetAdcContentRule", "GetAdcServiceHealth","AdcHttpExceptions", "AdcAdaptiveHealthCheck", "AdcWafVSRules", "AddRemoveAdcWafRule", "GetLicenseAccessKey", "GetLicenseType", "GetLicenseInfo", "RequestLicenseOnline", "RequestLicenseOffline", "UpdateLicenseOnline", "UpdateLicenseOffline", "RequestLicenseOnPremise", "GetAllSecUser", "GetSingleSecUser", "GetNetworkInterface", "GetAllParameters", "GetLmNetworkInterface", "GetTlsCertificate", "GetTlsCipherSet", "TlsHSM", "GetSSODomain", "GetSSOSamlDomain", "GetSSODomainLockedUser", "SetSSODomainLockedUser", "GetSSODomainSession", "InstallTemplate", "ExportVSTemplate", "GetTemplate", "GetLogStatistics", "GetWafRules", "GetWafRulesAutoUpdateConfiguration", "GetWafAuditFiles", "GetGeoFQDN", "AddGeoCluster", "SetGeoCluster", "AddNetworkVxLAN", "AddNetworkVLAN", "GetNetworkRoute", "TestNetworkRoute", "GetHosts", "GetVSTotals", "GetLdapEndpoint", "GetVpnConnection", "InstallLmAddon", "GetLmAddOn", "InstallLmPatch", "UninstallLmPatch", "GetLmPreviousFirmwareVersion", "AddSdnController", "SetSdnController", "GetSdnController", "RemoveSdnController", "GetAdcRealServer", "SetGeoFQDNSiteAddress", "GetGeoCustomLocation", "GetGeoIpRange", "TestLmGeoEnabled", "GetGeoPartnerStatus", "GetGeoIPBlacklistDatabaseConfiguration", "GetGeoIPWhitelist", "ExportGeoIPWhitelistDatabase", "GetGeoDNSSECConfiguration", "GetGeoLmMiscParameter", "GetVSPacketFilterACL", "GetPacketFilterOption", "GetGlobalPacketFilterACL", "GetLmIPConnectionLimit", "GetAzureHAConfiguration", "GetAwsHaConfiguration", "GetLmDebugInformation", "GetAslLicenseType", "GetLmVpnIkeDaemonStatus", "NewLmVpnConnection", "GetClusterStatus", "NewCluster") } {
+		{ ($_ -in "GeneralCase", "NewAdcVS", "GetAdcVS_Single", "GetAdcVS_List", "SetAdcVS", "NewAdcRS", "VirtualServiceRule", "RealServerRule", "EnableDisableRS", "GetSetAdcRS", "RemoveAdcRS", "AddAdcContentRule", "RemoveAdcContentRule", "SetAdcContentRule", "GetAdcContentRule", "GetAdcServiceHealth","AdcHttpExceptions", "AdcAdaptiveHealthCheck", "AdcWafVSRules", "AddRemoveAdcWafRule", "GetLicenseAccessKey", "GetLicenseType", "GetLicenseInfo", "RequestLicenseOnline", "RequestLicenseOffline", "UpdateLicenseOnline", "UpdateLicenseOffline", "RequestLicenseOnPremise", "GetAllSecUser", "GetSingleSecUser", "GetRemoteGroup", "GetAllRemoteGroups", "GetNetworkInterface", "GetAllParameters", "GetLmNetworkInterface", "GetTlsCertificate", "GetTlsCipherSet", "TlsHSM", "GetSSODomain", "GetSSOSamlDomain", "GetSSODomainLockedUser", "SetSSODomainLockedUser", "GetSSODomainSession", "InstallTemplate", "ExportVSTemplate", "GetTemplate", "GetLogStatistics", "GetWafRules", "GetWafRulesAutoUpdateConfiguration", "GetWafAuditFiles", "GetGeoFQDN", "GetGeoStats", "AddGeoCluster", "SetGeoCluster", "AddNetworkVxLAN", "AddNetworkVLAN", "GetNetworkRoute", "TestNetworkRoute", "GetHosts", "GetVSTotals", "GetLdapEndpoint", "GetVpnConnection", "InstallLmAddon", "GetLmAddOn", "InstallLmPatch", "UninstallLmPatch", "GetLmPreviousFirmwareVersion", "AddSdnController", "SetSdnController", "GetSdnController", "RemoveSdnController", "GetAdcRealServer", "SetGeoFQDNSiteAddress", "GetGeoCustomLocation", "GetGeoIpRange", "TestLmGeoEnabled", "GetGeoPartnerStatus", "GetGeoIPBlacklistDatabaseConfiguration", "GetGeoIPWhitelist", "ExportGeoIPWhitelistDatabase", "GetGeoDNSSECConfiguration", "GetGeoLmMiscParameter", "GetVSPacketFilterACL", "GetPacketFilterOption", "GetGlobalPacketFilterACL", "GetLmIPConnectionLimit", "GetAzureHAConfiguration", "GetAwsHaConfiguration", "GetLmCloudHaConfiguration", "GetLmDebugInformation", "GetAslLicenseType", "GetLmVpnIkeDaemonStatus", "NewLmVpnConnection", "GetClusterStatus", "NewCluster", "GetRaidController", "GetRaidControllerDisk") } {
 			$errMsg = $xmlAnsw.Response.Error
 		}
 
@@ -2861,6 +3030,7 @@ Function CreateLmHttpsRequest($url, $cred, $loginCert, $loginCertStore)
 
 	[System.Net.ServicePointManager]::Expect100Continue = $true
 	[System.Net.ServicePointManager]::MaxServicePointIdleTime = 10000
+	Write-Verbose "setting ServerCertificateValidationCallback to TRUE."
 	[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
 	[System.Net.ServicePointManager]::SecurityProtocol = 'Tls11','Tls12'
 
@@ -2961,14 +3131,18 @@ Function SetLoginConnectionErrorAnswer($ExError)
 		Write-Verbose "Inner Exception Message: [$errMsg2]."
 		$response = $null
 	}
+	Write-Verbose "setting ServerCertificateValidationCallback to NULL."
+	[System.Net.ServicePointManager]::ServerCertificateValidationCallback = $null
 	return $response
 }
 
 # Internal use only
 Function CloseConnectionWithLm($reader, $stream, $filestream, $response)
 {
-	Write-Verbose "closing connection."
+	Write-Verbose "setting ServerCertificateValidationCallback to NULL."
+	[System.Net.ServicePointManager]::ServerCertificateValidationCallback = $null
 
+	Write-Verbose "closing connection."
 	if ($reader) {
 		$reader.Close()
 		$reader.Dispose()
@@ -3073,6 +3247,7 @@ Function uploadGeoDnssecKeyFiles($url, $privateKeyFile, $publicKeyFile, $creds, 
 {
 	[System.Net.ServicePointManager]::Expect100Continue = $true
 	[System.Net.ServicePointManager]::MaxServicePointIdleTime = 10000
+	Write-Verbose "setting ServerCertificateValidationCallback to TRUE."
 	[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
 	[System.Net.ServicePointManager]::SecurityProtocol = 'Tls11','Tls12'
 
@@ -3132,6 +3307,8 @@ Function uploadGeoDnssecKeyFiles($url, $privateKeyFile, $publicKeyFile, $creds, 
 		      ($_.Exception.Message.Contains("Unauthorized")))) {
 			$errorAnswer = $_.Exception.Message
 			Write-Verbose "ERROR: $errorAnswer"
+			Write-Verbose "setting ServerCertificateValidationCallback to NULL."
+			[System.Net.ServicePointManager]::ServerCertificateValidationCallback = $null
 			Throw $errorAnswer
 			return
 		}
@@ -3141,6 +3318,8 @@ Function uploadGeoDnssecKeyFiles($url, $privateKeyFile, $publicKeyFile, $creds, 
 		catch {
 			$errorAnswer = $_.Exception.Message
 			Write-Verbose "ERROR: $errorAnswer"
+			Write-Verbose "setting ServerCertificateValidationCallback to NULL."
+			[System.Net.ServicePointManager]::ServerCertificateValidationCallback = $null
 			Throw $errorAnswer
 			return
 		}
@@ -3149,9 +3328,13 @@ Function uploadGeoDnssecKeyFiles($url, $privateKeyFile, $publicKeyFile, $creds, 
 		$reader.DiscardBufferedData()
 		$responseBody = $reader.ReadToEnd();
 		Write-Verbose "ERROR: $responseBody"
+		Write-Verbose "setting ServerCertificateValidationCallback to NULL."
+		[System.Net.ServicePointManager]::ServerCertificateValidationCallback = $null
 		return $responseBody
 	}
 	Write-Verbose "$($response.Innerxml)"
+	Write-Verbose "setting ServerCertificateValidationCallback to NULL."
+	[System.Net.ServicePointManager]::ServerCertificateValidationCallback = $null
 	return $response
 }
 
@@ -3732,7 +3915,8 @@ Function Get-LicenseType
 			[ValidateNotNullOrEmpty()]
 			[String]$SubjectCN = $script:SubjectCN
 	)
-	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	validateCommonInputParams $LoadBalancer $LBPort $null $null $null $null $null "skipLoginCheck"
+
 	$params = ConvertBoundParameters -hashtable $psboundparameters
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 
@@ -3889,7 +4073,7 @@ Export-ModuleMember -function Update-LicenseOffline
 
 Function Request-LicenseOnPremise
 {
-	[CmdletBinding()]
+	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
 		[ValidateNotNullOrEmpty()]
 		[String]$aslipaddr,
@@ -3909,7 +4093,19 @@ Function Request-LicenseOnPremise
 
 		[ValidateNotNullOrEmpty()]
 		[ValidateRange(3, 65530)]
-		[int]$LBPort = $LBAccessPort
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+		[ValidateNotNullOrEmpty()]
+		[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+		[ValidateNotNullOrEmpty()]
+		[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+		[ValidateNotNullOrEmpty()]
+		[String]$SubjectCN = $script:SubjectCN
 	)
 	validateCommonInputParams $LoadBalancer $LBPort $null $null $null $null $null "skipLoginCheck"
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
@@ -3917,7 +4113,7 @@ Function Request-LicenseOnPremise
 	$params = ConvertBoundParameters -hashtable $psboundparameters
 	if ($LicenseTypeId) {
 		$params.Remove("LicenseTypeId")
-		$params.Add("license_type_id", $LicenseTypeId)
+		$params.Add("lic_type_id", $LicenseTypeId)
 	}
 
 	try {
@@ -3933,7 +4129,7 @@ Export-ModuleMember -function Request-LicenseOnPremise
 
 Function Get-AslLicenseType
 {
-	[CmdletBinding()]
+	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
 		[ValidateNotNullOrEmpty()]
 		[String]$aslipaddr,
@@ -3950,18 +4146,24 @@ Function Get-AslLicenseType
 
 		[ValidateNotNullOrEmpty()]
 		[ValidateRange(3, 65530)]
-		[int]$LBPort = $LBAccessPort
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+		[ValidateNotNullOrEmpty()]
+		[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+		[ValidateNotNullOrEmpty()]
+		[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+		[ValidateNotNullOrEmpty()]
+		[String]$SubjectCN = $script:SubjectCN
 	)
 	validateCommonInputParams $LoadBalancer $LBPort $null $null $null $null $null "skipLoginCheck"
-
-	# need credentials
-	$pw = ConvertTo-SecureString "xxxx" -AsPlainText -Force
-	$Credential = New-Object System.Management.Automation.PSCredential("user", $pw)
-
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 
 	$params = ConvertBoundParameters -hashtable $psboundparameters
-	
 	try {
 		$response = SendCmdToLm -Command "aslgetlicensetypes" -ParameterValuePair $params -ConnParams $ConnParams
 		HandleLmAnswer -Command2ExecClass "GetAslLicenseType" -LMResponse $response
@@ -4594,6 +4796,103 @@ Function Reset-LogStatistics
 	}
 }
 Export-ModuleMember -function Reset-LogStatistics
+
+Function Export-LmWafDebugLogs
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[string]$Path,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$OutputFileName,
+
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	if (-not ($Path)) {
+		$Path = "$($Env:SystemRoot)\Temp\LM-WafDebugLogs_$(Get-Date -format yyyy-MM-dd_HH-mm-ss)"
+	}
+
+	if ($OutputFileName.Contains(".tar.gz") -eq $false) {
+			$OutputFileName = $OutputFileName + ".tar.gz"
+	}
+
+	$Path = validatePath $Path $OutputFileName
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "logging/downloadwafdebuglogs" -ParameterValuePair $params -File $Path -Output -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+		return
+	}
+}
+Export-ModuleMember -function Export-LmWafDebugLogs
+
+Function Reset-LmWafDebugLogs
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$cmd = "logging/resetwafdebuglogs"
+		$response = SendCmdToLm -Command "$Cmd" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+		return
+	}
+}
+Export-ModuleMember -function Reset-LmWafDebugLogs
 
 # ==================================================
 # endregion LOGGING
@@ -7184,6 +7483,8 @@ Function New-AdcVirtualService
 
 		[string]$GroupSIDs,
 
+		[string]$SteeringGroups,
+
 		[bool]$IncludeNestedGroups,
 
 		[bool]$DisplayPubPriv,
@@ -7207,10 +7508,16 @@ Function New-AdcVirtualService
 
 		[string]$UserPwdChangeMsg,
 
+		[ValidateRange(0, 2)]
+		[Int16]$SecurityHeaderOptions,
+
 		[ValidateRange(0, 5)]
 		[Int16]$InputAuthMode,
 
-		[ValidateRange(0, 2)]
+		[ValidateNotNullOrEmpty()]
+		[string]$OutConf,
+
+		[ValidateRange(0, 3)]
 		[Int16]$OutputAuthMode,
 
 		[ValidateRange(0, 1)]
@@ -7495,6 +7802,8 @@ Function Set-AdcVirtualService
 
 		[string]$GroupSIDs,
 
+		[string]$SteeringGroups,
+
 		[bool]$IncludeNestedGroups,
 
 		[bool]$DisplayPubPriv,
@@ -7518,10 +7827,16 @@ Function Set-AdcVirtualService
 
 		[string]$UserPwdChangeMsg,
 
+		[ValidateRange(0, 2)]
+		[Int16]$SecurityHeaderOptions,
+
 		[ValidateRange(0, 5)]
 		[Int16]$InputAuthMode,
 
-		[ValidateRange(0, 1)]
+		[ValidateNotNullOrEmpty()]
+		[string]$OutConf,
+
+		[ValidateRange(0, 3)]
 		[Int16]$OutputAuthMode,
 
 		[ValidateRange(0, 1)]
@@ -7581,6 +7896,9 @@ Function Set-AdcVirtualService
 
 		[ValidateNotNullOrEmpty()]
 		[string]$InterceptRules,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$InterceptPostOtherContentTypes,
 
 		[ValidateRange(0, 100000)]
 		[int32]$AlertThreshold,
@@ -8017,6 +8335,8 @@ Function Set-AdcSubVirtualService
 
 		[string]$GroupSIDs,
 
+		[string]$SteeringGroups,
+
 		[bool]$IncludeNestedGroups,
 
 		[bool]$DisplayPubPriv,
@@ -8040,10 +8360,16 @@ Function Set-AdcSubVirtualService
 
 		[string]$UserPwdChangeMsg,
 
+		[ValidateRange(0, 2)]
+		[Int16]$SecurityHeaderOptions,
+
 		[ValidateRange(0, 5)]
 		[Int16]$InputAuthMode,
 
-		[ValidateRange(0, 1)]
+		[ValidateNotNullOrEmpty()]
+		[string]$OutConf,
+
+		[ValidateRange(0, 3)]
 		[Int16]$OutputAuthMode,
 
 		[ValidateRange(0, 1)]
@@ -8097,6 +8423,9 @@ Function Set-AdcSubVirtualService
 
 		[ValidateNotNullOrEmpty()]
 		[string]$InterceptRules,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$InterceptPostOtherContentTypes,
 
 		[ValidateRange(0, 100000)]
 		[int32]$AlertThreshold,
@@ -8753,6 +9082,122 @@ Function Remove-AdcVirtualServiceRule
 Export-ModuleMember -function Remove-AdcVirtualServiceRule, Remove-VirtualServerRule, Remove-AdcVirtualServerRule
 
 #.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function New-AdcVirtualServiceResponseBodyRule
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[Int32]$VSIndex,
+
+		[Parameter(Mandatory=$true)]
+		[string]$RuleName,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	if ($VSIndex -le 0) {
+		Throw "ERROR: VSIndex must be greater than 0."
+		return
+	}
+
+	if ([String]::IsNullOrEmpty($RuleName)) {
+		Throw "ERROR: Rule name is a mandatory parameter. Please check your input"
+		return
+	}
+
+	try {
+		$response = SendCmdToLm -Command "addresponsebodyrule" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function New-AdcVirtualServiceResponseBodyRule
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Remove-AdcVirtualServiceResponseBodyRule
+{
+	[cmdletbinding(SupportsShouldProcess=$true, ConfirmImpact="High", DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[Int32]$VSIndex,
+
+		[Parameter(Mandatory=$true)]
+		[string]$RuleName,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN,
+
+		[switch]$Force
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	if ($VSIndex -le 0) {
+		Throw "ERROR: VSIndex must be greater than 0."
+		return
+	}
+
+	if ([String]::IsNullOrEmpty($RuleName)) {
+		Throw "ERROR: Rule name is a mandatory parameter. Please check your input"
+		return
+	}
+
+	if (($Force) -or ($PsCmdlet.ShouldProcess($RuleName, "Remove Response Body Rule"))) {
+		try {
+			$response = SendCmdToLm -Command "delresponsebodyrule" -ParameterValuePair $params -ConnParams $ConnParams
+			HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+		}
+		catch {
+			$errMsg = $_.Exception.Message
+			setKempAPIReturnObject 400 "$errMsg" $null
+		}
+	}
+}
+Export-ModuleMember -function Remove-AdcVirtualServiceResponseBodyRule
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
 Function New-AdcRealServerRule
 {
 	[cmdletbinding(DefaultParameterSetName='Credential')]
@@ -8920,6 +9365,15 @@ Function New-AdcContentRule
 		                #       EVEN BETTER: set the RuleType to string as in Get-AdcContentRule with the
 		                #       same values and maps the string type to the corrispondent integer value.
 
+		[ValidateRange(0, 1)]
+		[int]$MustFail,
+
+		[ValidateRange(0, 9)]
+		[int]$OnlyOnFlag,
+
+		[ValidateRange(0, 9)]
+		[int]$SetFlagOnMatch,
+
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
 
@@ -8952,6 +9406,19 @@ Function New-AdcContentRule
 	}
 	else {
 		Throw "[New-AdcContentRule] ERROR: The parameter RuleName is mandatory."
+	}
+
+	if ($params.ContainsKey("MustFail")) {
+		$params.Remove("MustFail")
+		$params.Add("mustfail", $MustFail)
+	}
+	if ($params.ContainsKey("OnlyOnFlag")) {
+		$params.Remove("OnlyOnFlag")
+		$params.Add("onlyonflag", $OnlyOnFlag)
+	}
+	if ($params.ContainsKey("SetFlagOnMatch")) {
+		$params.Remove("SetFlagOnMatch")
+		$params.Add("setonmatch", $SetFlagOnMatch)
 	}
 
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
@@ -9044,6 +9511,15 @@ Function Set-AdcContentRule
 		                #       EVEN BETTER: set the RuleType to string as in Get-AdcContentRule with the
 		                #       same values and maps the string type to the corrispondent integer value.
 
+		[ValidateRange(0, 1)]
+		[int]$MustFail,
+
+		[ValidateRange(0, 9)]
+		[int]$OnlyOnFlag,
+
+		[ValidateRange(0, 9)]
+		[int]$SetFlagOnMatch,
+
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
 
@@ -9076,6 +9552,19 @@ Function Set-AdcContentRule
 	}
 	else {
 		Throw "[Set-AdcContentRule] ERROR: The parameter RuleName is mandatory."
+	}
+
+	if ($params.ContainsKey("MustFail")) {
+		$params.Remove("MustFail")
+		$params.Add("mustfail", $MustFail)
+	}
+	if ($params.ContainsKey("OnlyOnFlag")) {
+		$params.Remove("OnlyOnFlag")
+		$params.Add("onlyonflag", $OnlyOnFlag)
+	}
+	if ($params.ContainsKey("SetFlagOnMatch")) {
+		$params.Remove("SetFlagOnMatch")
+		$params.Add("setonmatch", $SetFlagOnMatch)
 	}
 
 	#
@@ -9204,6 +9693,8 @@ Function mapInternalL7NamesToExt($L7ConfHt, $paramName, $paramValue)
 
 		"dropatdrainend" { $L7ConfHt.Add("DropAtDrainEnd", $paramValue); break }
 
+		"transparent" { $L7ConfHt.Add("Transparent", $paramValue); break }
+
 		"authtimeout" { $L7ConfHt.Add("L7AuthTimeoutSecs", $paramValue); break }
 
 		"clienttokentimeout" { $L7ConfHt.Add("L7ClientTokenTimeoutSecs", $paramValue); break }
@@ -9295,7 +9786,7 @@ Function Get-AdcL7Configuration
 	# NOTE: add new parameters in the WUI same order
 	$l7ConfParameters = @("localbind", "alwayspersist", "addcookieport", "rfcconform",
 	                      "closeonerror", "addvia", "rsarelocal", "droponfail",
-	                      "dropatdrainend", "authtimeout", "clienttokentimeout", "finalpersist",
+	                      "dropatdrainend", "transparent", "authtimeout", "clienttokentimeout", "finalpersist",
 	                      "addforwardheader", "expect100", "allowemptyposts", "AllowEmptyHttpHeaders",
 	                      "ForceFullRSMatch", "slowstart", "ShareSubVSPersist")
 
@@ -9345,6 +9836,8 @@ Function Set-AdcL7Configuration
 		[bool]$DropOnRSFail,
 
 		[bool]$DropAtDrainEnd,
+
+		[bool]$Transparent,
 
 		[ValidateRange(30, 300)]
 		[Int16]$L7AuthTimeoutSecs,
@@ -10856,7 +11349,7 @@ Function Get-SecWuiAuthentication
 
 	$parameters = @("radiusserver", "radiusport", "radiussecret", "radiusrevalidateinterval",
 	                "radiusbackupserver", "radiusbackupport", "radiusbackupsecret",
-	                "wuildapep", "sessionlocalauth", "sessionauthmode")
+	                "wuildapep", "wuiusergroups", "wuinestedgroups", "WuiDomain", "sessionlocalauth", "sessionauthmode")
 
 	GetLmParameterSet $parameters "SecWuiAuthenticationConfiguration" $params
 }
@@ -10885,10 +11378,17 @@ Function Set-SecWuiAuthentication
 
 		[string]$WuiLdapEp,
 
+		[string]$Wuiusergroups,
+
+		[ValidateSet("yes", "no")]
+	 	[string]$Wuinestedgroups,
+
 		[bool]$SessionLocalAuth,
 
 		[ValidateSet(7, 22, 23, 262, 263, 278, 279, 772, 773, 774, 775, 788, 789, 790, 791)]
 		[Int16]$SessionAuthMode,
+
+		[string]$WuiDomain,
 
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
@@ -11316,6 +11816,185 @@ Function Set-SecUserPassword
 }
 Export-ModuleMember -function Set-SecUserPassword, UserChangeLocalPassword
 
+Function New-SecRemoteUserGroup
+{	
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[String]$Group,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "groupaddremote" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function New-SecRemoteUserGroup
+
+Function Remove-SecRemoteUserGroup
+{	
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[String]$Group,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "groupdelremote" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Remove-SecRemoteUserGroup
+
+Function Set-SecRemoteUserGroup
+{	
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[String]$Group,
+
+		[Parameter(Mandatory=$true)]
+		[String]$Permissions,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "groupsetperms" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Set-SecRemoteUserGroup
+
+Function Get-SecRemoteUserGroup
+{	
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[String]$Group,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	if ($Group) {
+		$cmd = "groupshow"
+		$class = "GetRemoteGroup"
+	}
+	else {
+		$cmd = "grouplist"
+		$params.Remove("Group")
+		$class = "GetAllRemoteGroups"
+	}
+
+	try {
+		$response = SendCmdToLm -Command $cmd -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass $class -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Get-SecRemoteUserGroup
+
 # ==================================================
 # endregion SECURITY
 # ==================================================
@@ -11578,7 +12257,7 @@ Function Test-LmServerConnection
 		$params["Credential"] = $script:cred
 	}
 	else {
-		$fpasswd = ConvertTo-SecureString "bagigifritti" -AsPlainText -Force
+		$fpasswd = ConvertTo-SecureString "invalidpassword" -AsPlainText -Force
 		$fcreds = New-Object System.Management.Automation.PSCredential("bal", $fpasswd)
 		$params["Credential"] = $fcreds
 	}
@@ -11589,9 +12268,15 @@ Function Test-LmServerConnection
 		$LmResponse = Get-LmParameter @params
 		$rc = $LmResponse.ReturnCode
 		$rs = $LmResponse.Response
+		Write-Verbose "ret code [$rc]"
+		Write-Verbose "ret resp [$rs]"
 		if ( ($rc -eq 200) -or
 		     ($rc -eq 401 -and $rs.Contains("(401) Unauthorized")) -or
-		     ($rc -eq 405 -and $rs.Contains("Unknown command")) ) {
+		     ($rc -eq 401 -and $rs.Contains("(401)")) -or
+		     ($rc -eq 400 -and $rs.Contains("(401) Unauthorized")) -or
+		     ($rc -eq 400 -and $rs.Contains("(401)")) -or
+		     ($rc -eq 405 -and $rs.Contains("Unknown command")) -or
+		     ($rc -eq 405) ) {
 			# the LM is up and running
 			$LmTestServerConnectionFlag = $false
 			Write-Verbose -Message "OK, the LM Server is up and running"
@@ -11599,11 +12284,91 @@ Function Test-LmServerConnection
 		}
 	}
 	catch {
+		$errMsg = $_.Exception.Message
 		$LmTestServerConnectionFlag = $false
+		Write-Verbose -Message "ERROR: Exception caught [$errMsg]"
 	}
 	return $false
 }
 Export-ModuleMember -function Test-LmServerConnection, Test-ServerConnection
+
+Function Get-LmRaidController
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	
+	try {
+		$response = SendCmdToLm -Command "getraidinfo" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetRaidController" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Get-LmRaidController
+
+Function Get-LmRaidControllerDisk
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	
+	try {
+		$response = SendCmdToLm -Command "getraiddisksinfo" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetRaidControllerDisk" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Get-LmRaidControllerDisk
 
 # ==================================================
 # endregion SYSTEM
@@ -12463,7 +13228,7 @@ Function New-TlsHSMClientCert
 }
 Export-ModuleMember -function New-TlsHSMClientCert, HSMGenerateClientCert
 
-Function Set-TlsHSMCACert
+Function Import-TlsHSMCACert
 {
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
@@ -12504,7 +13269,7 @@ Function Set-TlsHSMCACert
 		setKempAPIReturnObject 400 "$errMsg" $null
 	}
 }
-Export-ModuleMember -function Set-TlsHSMCACert, HSMUploadCACert
+Export-ModuleMember -function Import-TlsHSMCACert, HSMUploadCACert
 
 # ==================================================
 # endregion TLS
@@ -12535,8 +13300,14 @@ Function validatePath($Path, $FileName)
 	}
 
 	$folder = Split-Path -Path $Path
-	if ($folder -and (-not (Test-Path $folder))) {
-		Throw "ERROR: $folder is not a valid path."
+	if ($folder) {
+		if ($folder -and (-not (Test-Path $folder))) {
+			Throw "ERROR: $folder is not a valid path."
+			return
+		}
+	}
+	else {
+		Throw "ERROR: $Path is not a valid path."
 		return
 	}
 
@@ -16070,6 +16841,47 @@ Function Test-LmGeoEnabled
 	}
 }
 Export-ModuleMember -function Test-LmGeoEnabled, IsGEOEnabled
+
+<#
+Function Get-GeoStatistics
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "geostats" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetGeoStats" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Get-GeoStatistics
+#>
 
 # ==================================================
 # endregion GEO
@@ -19883,7 +20695,11 @@ Function Set-LmAzureHAConfiguration
 
 		[ValidateNotNullOrEmpty()]
 		[ValidateRange(0, 1)]
-		[int]$haprefered,
+		[int]$Hapreferred,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateSet("no", "yes")]
+		[string]$HealthCheckAllInterfaces = "no",
 
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
@@ -19916,6 +20732,23 @@ Function Set-LmAzureHAConfiguration
 	if ($HealthCheckPort) {
 		$params.Remove("HealthCheckPort")
 		$params.Add("Hcp", $HealthCheckPort)
+	}
+	if ($Hapreferred -eq 0 -or $Hapreferred -eq 1) {
+		$params.Remove("Hapreferred")
+		$params.Add("Haprefered", $Hapreferred)
+	}
+	else {
+		Throw "ERROR: Value for Hapreferred ($Hapreferred) out of range."
+		return
+	}
+	if ($HealthCheckAllInterfaces) {
+		$params.Remove("HealthCheckAllInterfaces")
+		if ($HealthCheckAllInterfaces -eq "yes") {
+			$params.Add("hcai", 1)
+		}
+		else {
+			$params.Add("hcai", 0)
+		}
 	}
 
 	try {
@@ -20026,6 +20859,10 @@ Function Set-LmAwsHAConfiguration
 		[int]$haprefered,
 
 		[ValidateNotNullOrEmpty()]
+		[ValidateSet("no", "yes")]
+		[string]$HealthCheckAllInterfaces = "no",
+
+		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
 
 		[ValidateNotNullOrEmpty()]
@@ -20057,7 +20894,17 @@ Function Set-LmAwsHAConfiguration
 		$params.Remove("HealthCheckPort")
 		$params.Add("Hcp", $HealthCheckPort)
 	}
-	
+
+	if ($HealthCheckAllInterfaces) {
+		$params.Remove("HealthCheckAllInterfaces")
+		if ($HealthCheckAllInterfaces -eq "yes") {
+			$params.Add("hcai", 1)
+		}
+		else {
+			$params.Add("hcai", 0)
+		}
+	}
+
 	try {
 		$response = SendCmdToLm -Command "awshaparam" -ParameterValuePair $params -ConnParams $ConnParams
 		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
@@ -20068,6 +20915,167 @@ Function Set-LmAwsHAConfiguration
 	}
 }
 Export-ModuleMember -function Set-LmAwsHAConfiguration, Set-AwsHAOption
+
+Function Set-LmCloudHAMode
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateSet("master", "slave", "single")]
+		[string]$HAMode,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	
+	try {
+		$response = SendCmdToLm -Command "setcloudhamode" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Set-LmCloudHAMode
+
+Function Get-LmCloudHaConfiguration
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "getcloudhaparams" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetLmCloudHaConfiguration" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Get-LmCloudHaConfiguration
+
+Function Set-LmCloudHaConfiguration
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()]
+		[string]$Partner,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$HealthCheckPort,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(0, 1)]
+		[int]$Hapreferred,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateSet("no", "yes")]
+		[string]$HealthCheckAllInterfaces = "no",
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	if (!$Partner -and !$HealthCheckPort) {
+		Throw "ERROR: Partner and/or Hcp must be provided."
+	}
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	if ($HealthCheckPort) {
+		$params.Remove("HealthCheckPort")
+		$params.Add("Hcp", $HealthCheckPort)
+	}
+	if ($Hapreferred -eq 0 -or $Hapreferred -eq 1) {
+		$params.Remove("Hapreferred")
+		$params.Add("Haprefered", $Hapreferred)
+	}
+	else {
+		Throw "ERROR: Value for Hapreferred ($Hapreferred) out of range."
+		return
+	}
+	if ($HealthCheckAllInterfaces) {
+		$params.Remove("HealthCheckAllInterfaces")
+		if ($HealthCheckAllInterfaces -eq "yes") {
+			$params.Add("hcai", 1)
+		}
+		else {
+			$params.Add("hcai", 0)
+		}
+	}
+
+	try {
+		$response = SendCmdToLm -Command "setcloudhaparam" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Set-LmCloudHaConfiguration
 
 # ==================================================
 # endregion HA
@@ -20162,7 +21170,7 @@ Function Get-LmDebugConfiguration
 	#        - Stop IPsec IKE Daemon
 	#        - Perform an IPsec Status
 	#        - Enable IKE Debug Level Logs
-	$parameters = @("transparent", "irqbalance", "linearesplogs", "netconsole", "netconsoleinterface")
+	$parameters = @("irqbalance", "linearesplogs", "netconsole", "netconsoleinterface")
 
 	GetLmParameterSet $parameters "LmDebugConfiguration" $params
 }
@@ -20172,8 +21180,6 @@ Function Set-LmDebugConfiguration
 {
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
-		[bool]$transparent,
-
 		[bool]$irqbalance,
 
 		[bool]$linearesplogs,
@@ -20428,6 +21434,66 @@ Function Trace-TcpTraffic
 	}
 }
 Export-ModuleMember -function Trace-TcpTraffic, DoTcpDump
+
+Function Get-LmProcessesInfo
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateRange(1, 30)]
+		[int]$iterations,
+
+		[ValidateRange(1, 30)]
+		[int]$interval,
+
+		[switch]$mem,
+
+		[switch]$threads,
+
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$cmd = "logging/top"
+
+	if ($mem) {
+		$params.Remove("mem")
+		$params.Add("mem", 1)
+	}
+
+	if ($threads) {
+		$params.Remove("threads")
+		$params.Add("threads", 1)
+	}
+
+	try {
+		$response = SendCmdToLm -Command $cmd -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetLmDebugInformation" -LMResponse $response -AdditionalData "top"
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Get-LmProcessesInfo
 
 # ==================================================
 # endregion DIAGNOSTIC
@@ -20736,10 +21802,10 @@ Export-ModuleMember -function Remove-ClusterNode, NMDeleteNode
 # ==================================================
 
 # SIG # Begin signature block
-# MIIcDQYJKoZIhvcNAQcCoIIb/jCCG/oCAQExDzANBglghkgBZQMEAgEFADB5Bgor
+# MIIcBAYJKoZIhvcNAQcCoIIb9TCCG/ECAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCPmx0NsBKNdghi
-# 1CcQo6OC9oMhkjRQYnmFvEbddlA1F6CCCuMwggVWMIIEPqADAgECAhAZGjLLdZyX
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCPQyJQpmDHUImg
+# vSlEehb2Syfn0eILrCgcf/pdEYy2SKCCCtswggVWMIIEPqADAgECAhAZGjLLdZyX
 # uM+sEY3VEn9JMA0GCSqGSIb3DQEBCwUAMIHKMQswCQYDVQQGEwJVUzEXMBUGA1UE
 # ChMOVmVyaVNpZ24sIEluYy4xHzAdBgNVBAsTFlZlcmlTaWduIFRydXN0IE5ldHdv
 # cmsxOjA4BgNVBAsTMShjKSAyMDA2IFZlcmlTaWduLCBJbmMuIC0gRm9yIGF1dGhv
@@ -20768,122 +21834,122 @@ Export-ModuleMember -function Remove-ClusterNode, NMDeleteNode
 # S0nDI4t+AjIYJ7erC/MYcrak7mcGbzimWI3g8X5dpGDGqOVQX+DouuKPmVi2taCo
 # dvGi8RyIQXJ+UpebCjaZjVD3Aes85/AiauU1jGM2ihqx2WdmX5ca76ggnfAvumzO
 # 2ZSFAPFY8X3JfCK1B10CxuYLv6uTk/8nGI4zNn5XNPHDrwTBhPFWs+iHgzb40wox
-# 3G4sbTCCBYUwggRtoAMCAQICECeDjyzMAJ09C7Adbyi1uUkwDQYJKoZIhvcNAQEL
+# 3G4sbTCCBX0wggRloAMCAQICEAnjhjYs/6dOuAUymxv+wPcwDQYJKoZIhvcNAQEL
 # BQAwgZExCzAJBgNVBAYTAlVTMR0wGwYDVQQKExRTeW1hbnRlYyBDb3Jwb3JhdGlv
 # bjEfMB0GA1UECxMWU3ltYW50ZWMgVHJ1c3QgTmV0d29yazFCMEAGA1UEAxM5U3lt
 # YW50ZWMgQ2xhc3MgMyBFeHRlbmRlZCBWYWxpZGF0aW9uIENvZGUgU2lnbmluZyBD
-# QSAtIEcyMB4XDTE2MTAwNTAwMDAwMFoXDTE3MTAwNTIzNTk1OVowgdYxEzARBgsr
-# BgEEAYI3PAIBAxMCVVMxGTAXBgsrBgEEAYI3PAIBAhMIRGVsYXdhcmUxHTAbBgNV
-# BA8TFFByaXZhdGUgT3JnYW5pemF0aW9uMRAwDgYDVQQFEwc1MDg0MDMyMQswCQYD
-# VQQGEwJVUzERMA8GA1UECAwITmV3IFlvcmsxETAPBgNVBAcMCE5ldyBZb3JrMR8w
-# HQYDVQQKDBZLRU1QIFRlY2hub2xvZ2llcyBJbmMuMR8wHQYDVQQDDBZLRU1QIFRl
-# Y2hub2xvZ2llcyBJbmMuMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA
-# zUcerldV4VKZ+xPtYfy3/HwbSLJu8HS2urs4QUEF41PJYl50P/+ePYKpuOcksc2l
-# n45YO5/zrKTcjgzxMxJhrNDDAelPeZjiDlkidj6a79msxMXjRzIAI8A4b5SpKBKc
-# 7GVANCt0HZlEWjYegiaVjA6fRJFTRuJVr+K1fc1M79mgARNPCLOuy21N7d+MNvOl
-# nfBlvRGJZC2CQeeXHjhh/q8RdPmVqXliG8zkIIX+wq+kyVSO1ngYsDJZ4iMmjpCA
-# QzdT564zK8potK4fjPblYDiiEtUR1wGg6g4l2X18Mci21of4RbWBKQ/hxQm6oprA
-# XBraFsYnwwwt8QSl9+UtmQIDAQABo4IBkDCCAYwwLgYDVR0RBCcwJaAjBggrBgEF
-# BQcIA6AXMBUME1VTLURFTEFXQVJFLTUwODQwMzIwCQYDVR0TBAIwADAOBgNVHQ8B
-# Af8EBAMCB4AwKwYDVR0fBCQwIjAgoB6gHIYaaHR0cDovL3N3LnN5bWNiLmNvbS9z
-# dy5jcmwwYAYDVR0gBFkwVzBVBgVngQwBAzBMMCMGCCsGAQUFBwIBFhdodHRwczov
-# L2Quc3ltY2IuY29tL2NwczAlBggrBgEFBQcCAjAZDBdodHRwczovL2Quc3ltY2Iu
-# Y29tL3JwYTAWBgNVHSUBAf8EDDAKBggrBgEFBQcDAzAfBgNVHSMEGDAWgBQWZt5K
-# NONQpxGGA7FsqcaszVlumzAdBgNVHQ4EFgQUu/UpUEJhq9Dx+3CC/n6LPC3FyRYw
-# WAYIKwYBBQUHAQEETDBKMB8GCCsGAQUFBzABhhNodHRwOi8vc3cuc3ltY2QuY29t
-# MCcGCCsGAQUFBzAChhtodHRwOi8vc3cxLnN5bWNiLmNvbS9zdy5jcnQwDQYJKoZI
-# hvcNAQELBQADggEBAF/gxzrK67CSW740OGSXAC4/NzRVcP5RmONNEXIjmYEowtgN
-# UtXAns9olC+uzborP1Pq7MvZKMC0CW5P8GsloeqVGjRQ2IPFiEvLAagQO5HVzDMA
-# NZeuTNS5At5i+MkqkW+sLoVH+tBVDhbn17sH2mX0wXid4NCOojyVA1FarE0gup+v
-# XjhwBlXQPRU2K49cmd6dryN1GGufmiXJC25fggZ+2lc0A+j1mBfN9lsMVe7ZYgvW
-# o1WyWM/K66ga8FC9MIpv2tzVQc5Oy0UysQtnHykfRuAA5yXHaiXejx2uF5/5LWR1
-# s53Zchz0LXsZ+ndn4Utg0e2T9iRyuW7Sw7jek4sxghCAMIIQfAIBATCBpjCBkTEL
-# MAkGA1UEBhMCVVMxHTAbBgNVBAoTFFN5bWFudGVjIENvcnBvcmF0aW9uMR8wHQYD
-# VQQLExZTeW1hbnRlYyBUcnVzdCBOZXR3b3JrMUIwQAYDVQQDEzlTeW1hbnRlYyBD
-# bGFzcyAzIEV4dGVuZGVkIFZhbGlkYXRpb24gQ29kZSBTaWduaW5nIENBIC0gRzIC
-# ECeDjyzMAJ09C7Adbyi1uUkwDQYJYIZIAWUDBAIBBQCgfDAQBgorBgEEAYI3AgEM
-# MQIwADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4w
-# DAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQxIgQgHJgcFI7g7ob4+1+NrRFswiLq
-# 8bMDbyRQ5OvWTEmOEiIwDQYJKoZIhvcNAQEBBQAEggEASRnu9ZAGe7BhJ6Y8m/ZW
-# CkBFEaKkuBu2sZcSEenCizNsvUYPRU1Bs4buUPolaykuIjqR4NHgGcV9zTnzVq8F
-# 0QFma3HLIQBwOo1exx2hcFkmABrDCO4A5heMorhW/+M7TgaffmnFEQez3RkoV2B3
-# kHvFqgWeg4YcUw2koaE6iZ/pltvMwxja9Iz6RSxws8UKlYWz/kNVDCas1aUfbOzH
-# ZYUF82MsE/2CBAnbckA1SXywWNSt4qVH5Cz35Ts80oi6HT1rJVdj95vH3e0Du3oc
-# 8vlbHesVM7n35JADdO4CXwwa7zQyslwN5pKUIXV5ciDJ6eH9hgHWuDoCerRXTmYw
-# AKGCDiwwgg4oBgorBgEEAYI3AwMBMYIOGDCCDhQGCSqGSIb3DQEHAqCCDgUwgg4B
-# AgEDMQ0wCwYJYIZIAWUDBAIBMIH/BgsqhkiG9w0BCRABBKCB7wSB7DCB6QIBAQYL
-# YIZIAYb4RQEHFwMwITAJBgUrDgMCGgUABBT92zoURS/o3bc9KCKkQraG0n2bpQIV
-# APHesgxQOH2JetbVNU6OmZLt+QZkGA8yMDE3MDcwMzIwMTQxNlowAwIBHqCBhqSB
-# gzCBgDELMAkGA1UEBhMCVVMxHTAbBgNVBAoTFFN5bWFudGVjIENvcnBvcmF0aW9u
-# MR8wHQYDVQQLExZTeW1hbnRlYyBUcnVzdCBOZXR3b3JrMTEwLwYDVQQDEyhTeW1h
-# bnRlYyBTSEEyNTYgVGltZVN0YW1waW5nIFNpZ25lciAtIEcyoIIKizCCBTgwggQg
-# oAMCAQICEHsFsdRJaFFE98mJ0pwZnRIwDQYJKoZIhvcNAQELBQAwgb0xCzAJBgNV
-# BAYTAlVTMRcwFQYDVQQKEw5WZXJpU2lnbiwgSW5jLjEfMB0GA1UECxMWVmVyaVNp
-# Z24gVHJ1c3QgTmV0d29yazE6MDgGA1UECxMxKGMpIDIwMDggVmVyaVNpZ24sIElu
-# Yy4gLSBGb3IgYXV0aG9yaXplZCB1c2Ugb25seTE4MDYGA1UEAxMvVmVyaVNpZ24g
-# VW5pdmVyc2FsIFJvb3QgQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwHhcNMTYwMTEy
-# MDAwMDAwWhcNMzEwMTExMjM1OTU5WjB3MQswCQYDVQQGEwJVUzEdMBsGA1UEChMU
-# U3ltYW50ZWMgQ29ycG9yYXRpb24xHzAdBgNVBAsTFlN5bWFudGVjIFRydXN0IE5l
-# dHdvcmsxKDAmBgNVBAMTH1N5bWFudGVjIFNIQTI1NiBUaW1lU3RhbXBpbmcgQ0Ew
-# ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC7WZ1ZVU+djHJdGoGi61Xz
-# sAGtPHGsMo8Fa4aaJwAyl2pNyWQUSym7wtkpuS7sY7Phzz8LVpD4Yht+66YH4t5/
-# Xm1AONSRBudBfHkcy8utG7/YlZHz8O5s+K2WOS5/wSe4eDnFhKXt7a+Hjs6Nx23q
-# 0pi1Oh8eOZ3D9Jqo9IThxNF8ccYGKbQ/5IMNJsN7CD5N+Qq3M0n/yjvU9bKbS+GI
-# mRr1wOkzFNbfx4Dbke7+vJJXcnf0zajM/gn1kze+lYhqxdz0sUvUzugJkV+1hHk1
-# inisGTKPI8EyQRtZDqk+scz51ivvt9jk1R1tETqS9pPJnONI7rtTDtQ2l4Z4xaE3
-# AgMBAAGjggF3MIIBczAOBgNVHQ8BAf8EBAMCAQYwEgYDVR0TAQH/BAgwBgEB/wIB
+# QSAtIEcyMB4XDTE3MTAxOTAwMDAwMFoXDTE5MTAxOTIzNTk1OVowgf4xEzARBgsr
+# BgEEAYI3PAIBAxMCVVMxGTAXBgsrBgEEAYI3PAIBAgwIRGVsYXdhcmUxGTAXBgsr
+# BgEEAYI3PAIBAQwITmV3IFlvcmsxHTAbBgNVBA8TFFByaXZhdGUgT3JnYW5pemF0
+# aW9uMRAwDgYDVQQFEwc1MDg0MDMyMQswCQYDVQQGEwJVUzERMA8GA1UECAwITmV3
+# IFlvcmsxETAPBgNVBAcMCE5ldyBZb3JrMR8wHQYDVQQKDBZLRU1QIFRlY2hub2xv
+# Z2llcyBJbmMuMQswCQYDVQQLDAJRQTEfMB0GA1UEAwwWS0VNUCBUZWNobm9sb2dp
+# ZXMgSW5jLjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAPaExXaYUBkx
+# Rx66WM67RJs7wYzxOrp45d15G1+/YKR++bLt3lq4a2GyAMeAQ64ORVAh7A/6mvGM
+# vmI0EnvDHIEd01DkuvPuTLWYm8qlQ9YEIDr9yGx91m3KTfXv9rI2yomdEYRogn/k
+# Hccj6aHw8zqfmW58raX1L8BpJZCm/POfXF2zdbQoLdwV1GBC1On/lrdgmrdy8yhU
+# Q1BayPtJyFcr+6PEXdAK6wUkMRr3VMBCxuisYDmpQkCuMJLKx/p6a0SueJ6WMbsW
+# 4FgOPrsEa568KIDzfrBo8PyLVz9GhK/CNCitSkcNjnRv7rjxDBY+UVskcrHR9FkZ
+# zvj89+xJe4cCAwEAAaOCAWAwggFcMAkGA1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeA
+# MCsGA1UdHwQkMCIwIKAeoByGGmh0dHA6Ly9zdy5zeW1jYi5jb20vc3cuY3JsMGAG
+# A1UdIARZMFcwVQYFZ4EMAQMwTDAjBggrBgEFBQcCARYXaHR0cHM6Ly9kLnN5bWNi
+# LmNvbS9jcHMwJQYIKwYBBQUHAgIwGQwXaHR0cHM6Ly9kLnN5bWNiLmNvbS9ycGEw
+# FgYDVR0lAQH/BAwwCgYIKwYBBQUHAwMwHwYDVR0jBBgwFoAUFmbeSjTjUKcRhgOx
+# bKnGrM1ZbpswHQYDVR0OBBYEFHbptFBo4Z3aXxd30+dWUKYVSK7VMFgGCCsGAQUF
+# BwEBBEwwSjAfBggrBgEFBQcwAYYTaHR0cDovL3N3LnN5bWNkLmNvbTAnBggrBgEF
+# BQcwAoYbaHR0cDovL3N3MS5zeW1jYi5jb20vc3cuY3J0MA0GCSqGSIb3DQEBCwUA
+# A4IBAQCs9haqQM48HDVuu/2TI5HzuzHuX4hoQamrXtEK/bT36U2wEUr08q9nDCgE
+# a4a9zfrLvnmtt+Qo9Eow7Qe46SkGSLOu/CHUdC1tZFSaqBFdZfPJO5UuYQ5wiJbQ
+# Jp3dsVn1GyzmdrnYLlvyQ/b2/qDWmf8GA8gcnhtJQkGU0hPV8OUCaEnt3ia5ZHSp
+# BF0lxbXTRQBb7qLIsz+OyJdOBVa5T3UN7Ghga2LMMUCoZg6xTNtTPuQBOAx7QnEL
+# m0jvnkSdedx/JvxkIO+BKocCaWc/KBnNNRmVqkN6esIHzu1Q+yeYZZNEUVQaNfPa
+# TlDzUq3bSqBaYy8bbNjUn8eW2C+kMYIQfzCCEHsCAQEwgaYwgZExCzAJBgNVBAYT
+# AlVTMR0wGwYDVQQKExRTeW1hbnRlYyBDb3Jwb3JhdGlvbjEfMB0GA1UECxMWU3lt
+# YW50ZWMgVHJ1c3QgTmV0d29yazFCMEAGA1UEAxM5U3ltYW50ZWMgQ2xhc3MgMyBF
+# eHRlbmRlZCBWYWxpZGF0aW9uIENvZGUgU2lnbmluZyBDQSAtIEcyAhAJ44Y2LP+n
+# TrgFMpsb/sD3MA0GCWCGSAFlAwQCAQUAoHwwEAYKKwYBBAGCNwIBDDECMAAwGQYJ
+# KoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGCNwIBCzEOMAwGCisGAQQB
+# gjcCARUwLwYJKoZIhvcNAQkEMSIEIDIyr638INmifgXH9NUit3L+gNjXbzgyHzFV
+# C7vr5ql1MA0GCSqGSIb3DQEBAQUABIIBAHRjNM9OdHpj/C2hMoYkq0Ecc6eX8P56
+# tFKRykFM6Fct46VEg8eEvJPdiD8y//lYIbl/88DEfmk4p+Ds7z2lOCpZz04umnHc
+# N/izd30H5olyUEyOaWy4jMr3lRbuRpiVXK5sKN4+FY6lDfOKd5frz+yviBgfvF6J
+# tDMo3SRbKtv7w1JQ1oeCuNG1qcq4eO6ieM6lzgJSOhvLq7Zv0/xWGwTk5devTMbU
+# ADFdDQFLlB3JwSrSYkanDXElIRnIQT1oXMquZxjROcKCqy+Pu9BF00gRzRfaom+x
+# AL+Ab1/rVd4BXksin+mkmUZ4/PlXDhmfFvJdhj23oX9gpEJ734c7sVyhgg4rMIIO
+# JwYKKwYBBAGCNwMDATGCDhcwgg4TBgkqhkiG9w0BBwKggg4EMIIOAAIBAzENMAsG
+# CWCGSAFlAwQCATCB/gYLKoZIhvcNAQkQAQSgge4EgeswgegCAQEGC2CGSAGG+EUB
+# BxcDMCEwCQYFKw4DAhoFAAQUfEFJLD1ONaEIULIAUhQw2ofKmXcCFHgEqg/S8LDq
+# LFOSSFKHyzYCH5UYGA8yMDE4MDYxNDE1MzAxNlowAwIBHqCBhqSBgzCBgDELMAkG
+# A1UEBhMCVVMxHTAbBgNVBAoTFFN5bWFudGVjIENvcnBvcmF0aW9uMR8wHQYDVQQL
+# ExZTeW1hbnRlYyBUcnVzdCBOZXR3b3JrMTEwLwYDVQQDEyhTeW1hbnRlYyBTSEEy
+# NTYgVGltZVN0YW1waW5nIFNpZ25lciAtIEcyoIIKizCCBTgwggQgoAMCAQICEHsF
+# sdRJaFFE98mJ0pwZnRIwDQYJKoZIhvcNAQELBQAwgb0xCzAJBgNVBAYTAlVTMRcw
+# FQYDVQQKEw5WZXJpU2lnbiwgSW5jLjEfMB0GA1UECxMWVmVyaVNpZ24gVHJ1c3Qg
+# TmV0d29yazE6MDgGA1UECxMxKGMpIDIwMDggVmVyaVNpZ24sIEluYy4gLSBGb3Ig
+# YXV0aG9yaXplZCB1c2Ugb25seTE4MDYGA1UEAxMvVmVyaVNpZ24gVW5pdmVyc2Fs
+# IFJvb3QgQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwHhcNMTYwMTEyMDAwMDAwWhcN
+# MzEwMTExMjM1OTU5WjB3MQswCQYDVQQGEwJVUzEdMBsGA1UEChMUU3ltYW50ZWMg
+# Q29ycG9yYXRpb24xHzAdBgNVBAsTFlN5bWFudGVjIFRydXN0IE5ldHdvcmsxKDAm
+# BgNVBAMTH1N5bWFudGVjIFNIQTI1NiBUaW1lU3RhbXBpbmcgQ0EwggEiMA0GCSqG
+# SIb3DQEBAQUAA4IBDwAwggEKAoIBAQC7WZ1ZVU+djHJdGoGi61XzsAGtPHGsMo8F
+# a4aaJwAyl2pNyWQUSym7wtkpuS7sY7Phzz8LVpD4Yht+66YH4t5/Xm1AONSRBudB
+# fHkcy8utG7/YlZHz8O5s+K2WOS5/wSe4eDnFhKXt7a+Hjs6Nx23q0pi1Oh8eOZ3D
+# 9Jqo9IThxNF8ccYGKbQ/5IMNJsN7CD5N+Qq3M0n/yjvU9bKbS+GImRr1wOkzFNbf
+# x4Dbke7+vJJXcnf0zajM/gn1kze+lYhqxdz0sUvUzugJkV+1hHk1inisGTKPI8Ey
+# QRtZDqk+scz51ivvt9jk1R1tETqS9pPJnONI7rtTDtQ2l4Z4xaE3AgMBAAGjggF3
+# MIIBczAOBgNVHQ8BAf8EBAMCAQYwEgYDVR0TAQH/BAgwBgEB/wIBADBmBgNVHSAE
+# XzBdMFsGC2CGSAGG+EUBBxcDMEwwIwYIKwYBBQUHAgEWF2h0dHBzOi8vZC5zeW1j
+# Yi5jb20vY3BzMCUGCCsGAQUFBwICMBkaF2h0dHBzOi8vZC5zeW1jYi5jb20vcnBh
+# MC4GCCsGAQUFBwEBBCIwIDAeBggrBgEFBQcwAYYSaHR0cDovL3Muc3ltY2QuY29t
+# MDYGA1UdHwQvMC0wK6ApoCeGJWh0dHA6Ly9zLnN5bWNiLmNvbS91bml2ZXJzYWwt
+# cm9vdC5jcmwwEwYDVR0lBAwwCgYIKwYBBQUHAwgwKAYDVR0RBCEwH6QdMBsxGTAX
+# BgNVBAMTEFRpbWVTdGFtcC0yMDQ4LTMwHQYDVR0OBBYEFK9j1sqjToVy4Ke8QfMp
+# ojh/gHViMB8GA1UdIwQYMBaAFLZ3+mlIR59TEtXC6gcydgfRlwcZMA0GCSqGSIb3
+# DQEBCwUAA4IBAQB16rAt1TQZXDJF/g7h1E+meMFv1+rd3E/zociBiPenjxXmQCmt
+# 5l30otlWZIRxMCrdHmEXZiBWBpgZjV1x8viXvAn9HJFHyeLojQP7zJAv1gpsTjPs
+# 1rSTyEyQY0g5QCHE3dZuiZg8tZiX6KkGtwnJj1NXQZAv4R5NTtzKEHhsQm7wtsX4
+# YVxS9U72a433Snq+8839A9fZ9gOoD+NT9wp17MZ1LqpmhQSZt/gGV+HGDvbor9rs
+# mxgfqrnjOgC/zoqUywHbnsc4uw9Sq9HjlANgCk2g/idtFDL8P5dA4b+ZidvkORS9
+# 2uTTw+orWrOVWFUEfcea7CMDjYUq0v+uqWGBMIIFSzCCBDOgAwIBAgIQVFjyqtdB
+# 1kS8hKl7oJZS5jANBgkqhkiG9w0BAQsFADB3MQswCQYDVQQGEwJVUzEdMBsGA1UE
+# ChMUU3ltYW50ZWMgQ29ycG9yYXRpb24xHzAdBgNVBAsTFlN5bWFudGVjIFRydXN0
+# IE5ldHdvcmsxKDAmBgNVBAMTH1N5bWFudGVjIFNIQTI1NiBUaW1lU3RhbXBpbmcg
+# Q0EwHhcNMTcwMTAyMDAwMDAwWhcNMjgwNDAxMjM1OTU5WjCBgDELMAkGA1UEBhMC
+# VVMxHTAbBgNVBAoTFFN5bWFudGVjIENvcnBvcmF0aW9uMR8wHQYDVQQLExZTeW1h
+# bnRlYyBUcnVzdCBOZXR3b3JrMTEwLwYDVQQDEyhTeW1hbnRlYyBTSEEyNTYgVGlt
+# ZVN0YW1waW5nIFNpZ25lciAtIEcyMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
+# CgKCAQEAmfP82AQJA4b511ymk8BCfOp8Y89dAOKO88CQ348p9RjqlLeS5dewoHOB
+# 6OkKm0p8Af+dj6Q5pw7qRfQiDDpw7TlFi+TFG1zwRWhGJAVjdpsc/J5sKrFW5Yp/
+# UnGu8jXVRiMGHM9ILR20zbjZdiOOHP8+v7sGXGkHpmUO+F6ufS7tTa4178nXAEL9
+# KJUOn11yQgm8w9pE0u3MR4Tk/MotrFi+rveu2UQNCLfCd9YaQ3DRbgPeUpLEEAhx
+# 2boiVfIfvO2bnTviXh1Mg/+XD3sL51WDTtIN677X7K5uR7mf36XWUbwEVe3/J3BM
+# ye0qSxPhsblMD8kB7lVlX2kCeGbLPwIDAQABo4IBxzCCAcMwDAYDVR0TAQH/BAIw
 # ADBmBgNVHSAEXzBdMFsGC2CGSAGG+EUBBxcDMEwwIwYIKwYBBQUHAgEWF2h0dHBz
 # Oi8vZC5zeW1jYi5jb20vY3BzMCUGCCsGAQUFBwICMBkaF2h0dHBzOi8vZC5zeW1j
-# Yi5jb20vcnBhMC4GCCsGAQUFBwEBBCIwIDAeBggrBgEFBQcwAYYSaHR0cDovL3Mu
-# c3ltY2QuY29tMDYGA1UdHwQvMC0wK6ApoCeGJWh0dHA6Ly9zLnN5bWNiLmNvbS91
-# bml2ZXJzYWwtcm9vdC5jcmwwEwYDVR0lBAwwCgYIKwYBBQUHAwgwKAYDVR0RBCEw
-# H6QdMBsxGTAXBgNVBAMTEFRpbWVTdGFtcC0yMDQ4LTMwHQYDVR0OBBYEFK9j1sqj
-# ToVy4Ke8QfMpojh/gHViMB8GA1UdIwQYMBaAFLZ3+mlIR59TEtXC6gcydgfRlwcZ
-# MA0GCSqGSIb3DQEBCwUAA4IBAQB16rAt1TQZXDJF/g7h1E+meMFv1+rd3E/zociB
-# iPenjxXmQCmt5l30otlWZIRxMCrdHmEXZiBWBpgZjV1x8viXvAn9HJFHyeLojQP7
-# zJAv1gpsTjPs1rSTyEyQY0g5QCHE3dZuiZg8tZiX6KkGtwnJj1NXQZAv4R5NTtzK
-# EHhsQm7wtsX4YVxS9U72a433Snq+8839A9fZ9gOoD+NT9wp17MZ1LqpmhQSZt/gG
-# V+HGDvbor9rsmxgfqrnjOgC/zoqUywHbnsc4uw9Sq9HjlANgCk2g/idtFDL8P5dA
-# 4b+ZidvkORS92uTTw+orWrOVWFUEfcea7CMDjYUq0v+uqWGBMIIFSzCCBDOgAwIB
-# AgIQVFjyqtdB1kS8hKl7oJZS5jANBgkqhkiG9w0BAQsFADB3MQswCQYDVQQGEwJV
-# UzEdMBsGA1UEChMUU3ltYW50ZWMgQ29ycG9yYXRpb24xHzAdBgNVBAsTFlN5bWFu
-# dGVjIFRydXN0IE5ldHdvcmsxKDAmBgNVBAMTH1N5bWFudGVjIFNIQTI1NiBUaW1l
-# U3RhbXBpbmcgQ0EwHhcNMTcwMTAyMDAwMDAwWhcNMjgwNDAxMjM1OTU5WjCBgDEL
-# MAkGA1UEBhMCVVMxHTAbBgNVBAoTFFN5bWFudGVjIENvcnBvcmF0aW9uMR8wHQYD
-# VQQLExZTeW1hbnRlYyBUcnVzdCBOZXR3b3JrMTEwLwYDVQQDEyhTeW1hbnRlYyBT
-# SEEyNTYgVGltZVN0YW1waW5nIFNpZ25lciAtIEcyMIIBIjANBgkqhkiG9w0BAQEF
-# AAOCAQ8AMIIBCgKCAQEAmfP82AQJA4b511ymk8BCfOp8Y89dAOKO88CQ348p9Rjq
-# lLeS5dewoHOB6OkKm0p8Af+dj6Q5pw7qRfQiDDpw7TlFi+TFG1zwRWhGJAVjdpsc
-# /J5sKrFW5Yp/UnGu8jXVRiMGHM9ILR20zbjZdiOOHP8+v7sGXGkHpmUO+F6ufS7t
-# Ta4178nXAEL9KJUOn11yQgm8w9pE0u3MR4Tk/MotrFi+rveu2UQNCLfCd9YaQ3DR
-# bgPeUpLEEAhx2boiVfIfvO2bnTviXh1Mg/+XD3sL51WDTtIN677X7K5uR7mf36XW
-# UbwEVe3/J3BMye0qSxPhsblMD8kB7lVlX2kCeGbLPwIDAQABo4IBxzCCAcMwDAYD
-# VR0TAQH/BAIwADBmBgNVHSAEXzBdMFsGC2CGSAGG+EUBBxcDMEwwIwYIKwYBBQUH
-# AgEWF2h0dHBzOi8vZC5zeW1jYi5jb20vY3BzMCUGCCsGAQUFBwICMBkaF2h0dHBz
-# Oi8vZC5zeW1jYi5jb20vcnBhMEAGA1UdHwQ5MDcwNaAzoDGGL2h0dHA6Ly90cy1j
-# cmwud3Muc3ltYW50ZWMuY29tL3NoYTI1Ni10c3MtY2EuY3JsMBYGA1UdJQEB/wQM
-# MAoGCCsGAQUFBwMIMA4GA1UdDwEB/wQEAwIHgDB3BggrBgEFBQcBAQRrMGkwKgYI
-# KwYBBQUHMAGGHmh0dHA6Ly90cy1vY3NwLndzLnN5bWFudGVjLmNvbTA7BggrBgEF
-# BQcwAoYvaHR0cDovL3RzLWFpYS53cy5zeW1hbnRlYy5jb20vc2hhMjU2LXRzcy1j
-# YS5jZXIwKAYDVR0RBCEwH6QdMBsxGTAXBgNVBAMTEFRpbWVTdGFtcC0yMDQ4LTUw
-# HQYDVR0OBBYEFAm1wf6WcpcpQ5rJ4AK6rvj9L7r2MB8GA1UdIwQYMBaAFK9j1sqj
-# ToVy4Ke8QfMpojh/gHViMA0GCSqGSIb3DQEBCwUAA4IBAQAXswqI6VxaXiBrOwoV
-# smzFqYoyh9Ox9BxTroW+P5v/17y3lIW0x1J+lOi97WGy1KeZ5MPJk8E1PQvoaApd
-# Vpi9sSI70UR617/wbVEyitUj3zgBN/biUyt6KxGPt01sejMDG3xrCZQXu+TbWNQh
-# E2Xn7NElyix1mpx//Mm7KmirxH20z6PJbKfZxACciQp3kfRNovsxO4Zu9uYfUAOG
-# m7/LQqvmdptyWhEBisbvpW+V592uuuYiZfAYWRsRyc2At9iXRx9CCPiscR+wRlOz
-# 1LLVo6tQdUgSF4Ktz+BBTzJ+zZUcv5GKCD2kp2cClt8kTKXQQcCCYKOKFzJL07zP
-# pLSMMYICWjCCAlYCAQEwgYswdzELMAkGA1UEBhMCVVMxHTAbBgNVBAoTFFN5bWFu
-# dGVjIENvcnBvcmF0aW9uMR8wHQYDVQQLExZTeW1hbnRlYyBUcnVzdCBOZXR3b3Jr
-# MSgwJgYDVQQDEx9TeW1hbnRlYyBTSEEyNTYgVGltZVN0YW1waW5nIENBAhBUWPKq
-# 10HWRLyEqXugllLmMAsGCWCGSAFlAwQCAaCBpDAaBgkqhkiG9w0BCQMxDQYLKoZI
-# hvcNAQkQAQQwHAYJKoZIhvcNAQkFMQ8XDTE3MDcwMzIwMTQxNlowLwYJKoZIhvcN
-# AQkEMSIEIEg1mORaa7ZOBuowaWsfyOx6qAqkCfvVcR5X4nt2n0XgMDcGCyqGSIb3
-# DQEJEAIvMSgwJjAkMCIEIM96wXrQR+zV/cNoIgMbEtTvB4tvK0xea6Qfj/LPS61n
-# MAsGCSqGSIb3DQEBAQSCAQCNNqMPLZ2vzsjJJi3z/n647lA844yWen+8Z3+h9mKU
-# YN8ZBetML6bXeQANcohX7Q76qJV1iIYM4bzTCGAHfyzvN3049d9CtDeutJhIsFVj
-# id+XztJHnkOXSCHA3YJhnSOy3J2rGRyf4RW/or0a1MqQZkdyZOSkyHQcx2iK/frd
-# vwm35pBoT8InIn0sG4gttcj3EXMcGMFKapK2AVuAaYKYlfFYD1lUIqBmwoSSVx41
-# D2KgFCsV79eLMjKI1w0rxj0zkiuNkImDrzZctPlV0qi5Kh6iOu1jqHUL1EjLWziH
-# LjQWWs4H8qIgEaZm7Lld2zdxKwT2f90Nc1hwJ9yIuCbZ
+# Yi5jb20vcnBhMEAGA1UdHwQ5MDcwNaAzoDGGL2h0dHA6Ly90cy1jcmwud3Muc3lt
+# YW50ZWMuY29tL3NoYTI1Ni10c3MtY2EuY3JsMBYGA1UdJQEB/wQMMAoGCCsGAQUF
+# BwMIMA4GA1UdDwEB/wQEAwIHgDB3BggrBgEFBQcBAQRrMGkwKgYIKwYBBQUHMAGG
+# Hmh0dHA6Ly90cy1vY3NwLndzLnN5bWFudGVjLmNvbTA7BggrBgEFBQcwAoYvaHR0
+# cDovL3RzLWFpYS53cy5zeW1hbnRlYy5jb20vc2hhMjU2LXRzcy1jYS5jZXIwKAYD
+# VR0RBCEwH6QdMBsxGTAXBgNVBAMTEFRpbWVTdGFtcC0yMDQ4LTUwHQYDVR0OBBYE
+# FAm1wf6WcpcpQ5rJ4AK6rvj9L7r2MB8GA1UdIwQYMBaAFK9j1sqjToVy4Ke8QfMp
+# ojh/gHViMA0GCSqGSIb3DQEBCwUAA4IBAQAXswqI6VxaXiBrOwoVsmzFqYoyh9Ox
+# 9BxTroW+P5v/17y3lIW0x1J+lOi97WGy1KeZ5MPJk8E1PQvoaApdVpi9sSI70UR6
+# 17/wbVEyitUj3zgBN/biUyt6KxGPt01sejMDG3xrCZQXu+TbWNQhE2Xn7NElyix1
+# mpx//Mm7KmirxH20z6PJbKfZxACciQp3kfRNovsxO4Zu9uYfUAOGm7/LQqvmdpty
+# WhEBisbvpW+V592uuuYiZfAYWRsRyc2At9iXRx9CCPiscR+wRlOz1LLVo6tQdUgS
+# F4Ktz+BBTzJ+zZUcv5GKCD2kp2cClt8kTKXQQcCCYKOKFzJL07zPpLSMMYICWjCC
+# AlYCAQEwgYswdzELMAkGA1UEBhMCVVMxHTAbBgNVBAoTFFN5bWFudGVjIENvcnBv
+# cmF0aW9uMR8wHQYDVQQLExZTeW1hbnRlYyBUcnVzdCBOZXR3b3JrMSgwJgYDVQQD
+# Ex9TeW1hbnRlYyBTSEEyNTYgVGltZVN0YW1waW5nIENBAhBUWPKq10HWRLyEqXug
+# llLmMAsGCWCGSAFlAwQCAaCBpDAaBgkqhkiG9w0BCQMxDQYLKoZIhvcNAQkQAQQw
+# HAYJKoZIhvcNAQkFMQ8XDTE4MDYxNDE1MzAxNlowLwYJKoZIhvcNAQkEMSIEIIFN
+# PFO4bYOGKOqOCu8epdX2Jljo7qumhEVYvVdG6ftbMDcGCyqGSIb3DQEJEAIvMSgw
+# JjAkMCIEIM96wXrQR+zV/cNoIgMbEtTvB4tvK0xea6Qfj/LPS61nMAsGCSqGSIb3
+# DQEBAQSCAQBuKKY5DpKGPMmDc5cD6O6oXniX0DJeayKtBPrbsKGFkCOPyQNgh6Kz
+# Ce0daFQAwUEV+DQvr6gIpCazW+/UmPqfgEOfLDhfpj7UmmY8rRpKo/z2h1G0ZcF5
+# T1rYUD7Q8YXmJXXn1wGMLolWiDC4XHMhErLLhD7BiTKualan0zLKsqzzAEHfzgyt
+# cTH2vTwWx8ApcG6EA7HG+ExcWg3G7Bq12kV8qcC7bgFOetMUyEb42qf20Pv15+40
+# hUSncYWJ6L45UarGQYOJPOGT4tb8MZW9gZBnYpzfH5LFouX05+m7/FhnJRNgBwLS
+# Wrk8z4I5xrDgYCli4UU1wlSeYwMDYR+T
 # SIG # End signature block
