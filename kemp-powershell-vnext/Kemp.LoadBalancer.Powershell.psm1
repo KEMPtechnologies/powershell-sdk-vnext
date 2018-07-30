@@ -7479,6 +7479,8 @@ Function New-AdcVirtualService
 
 		[string]$AllowedDirectories,
 
+		[string]$ExcludedDirectories,
+
 		[string]$AllowedGroups,
 
 		[string]$GroupSIDs,
@@ -7511,13 +7513,13 @@ Function New-AdcVirtualService
 		[ValidateRange(0, 2)]
 		[Int16]$SecurityHeaderOptions,
 
-		[ValidateRange(0, 5)]
+		[ValidateRange(0, 6)]
 		[Int16]$InputAuthMode,
 
 		[ValidateNotNullOrEmpty()]
 		[string]$OutConf,
 
-		[ValidateRange(0, 3)]
+		[ValidateRange(0, 4)]
 		[Int16]$OutputAuthMode,
 
 		[ValidateRange(0, 1)]
@@ -7798,6 +7800,8 @@ Function Set-AdcVirtualService
 
 		[string]$AllowedDirectories,
 
+		[string]$ExcludedDirectories,
+
 		[string]$AllowedGroups,
 
 		[string]$GroupSIDs,
@@ -7830,13 +7834,13 @@ Function Set-AdcVirtualService
 		[ValidateRange(0, 2)]
 		[Int16]$SecurityHeaderOptions,
 
-		[ValidateRange(0, 5)]
+		[ValidateRange(0, 6)]
 		[Int16]$InputAuthMode,
 
 		[ValidateNotNullOrEmpty()]
 		[string]$OutConf,
 
-		[ValidateRange(0, 3)]
+		[ValidateRange(0, 4)]
 		[Int16]$OutputAuthMode,
 
 		[ValidateRange(0, 1)]
@@ -8331,6 +8335,8 @@ Function Set-AdcSubVirtualService
 
 		[string]$AllowedDirectories,
 
+		[string]$ExcludedDirectories,
+
 		[string]$AllowedGroups,
 
 		[string]$GroupSIDs,
@@ -8363,13 +8369,13 @@ Function Set-AdcSubVirtualService
 		[ValidateRange(0, 2)]
 		[Int16]$SecurityHeaderOptions,
 
-		[ValidateRange(0, 5)]
+		[ValidateRange(0, 6)]
 		[Int16]$InputAuthMode,
 
 		[ValidateNotNullOrEmpty()]
 		[string]$OutConf,
 
-		[ValidateRange(0, 3)]
+		[ValidateRange(0, 4)]
 		[Int16]$OutputAuthMode,
 
 		[ValidateRange(0, 1)]
