@@ -1,5 +1,5 @@
 #
-# $Id: Kemp.LoadBalancer.Powershell.psm1 16291 2018-05-10 16:04:55Z fcarpin $
+# $Id: Kemp.LoadBalancer.Powershell.psm1 16625 2018-09-20 13:17:12Z fcarpin $
 #
 
 $ScriptDir = Split-Path -parent $MyInvocation.MyCommand.Path
@@ -1018,16 +1018,18 @@ Function SetAdcWafVSRulesReturnObject($xmlAnsw, $rulename)
 # Internal use only
 Function SetLicenseOnPremiseReturnObject($xmlAnsw)
 {
-	$AslServerIpAddr = $xmlAnsw.Response.Success.Data.aslipaddr
+	#$AslServerIpAddr = $xmlAnsw.Response.Success.Data.aslipaddr
+	$AslServerHost = $xmlAnsw.Response.Success.Data.aslhost
 	$AslServerPort = $xmlAnsw.Response.Success.Data.aslport
-	$AslServerFqdn = $xmlAnsw.Response.Success.Data.aslname
+	#$AslServerFqdn = $xmlAnsw.Response.Success.Data.aslname
 
 	$aslConf = [ordered]@{}
 	$aslConf.PSTypeName = "Asl Server Data"
 
-	$aslConf.Add("AslServerIpAddress", $AslServerIpAddr) | Out-null
-	$aslConf.Add("AslServerPort", $AslServerPort) | Out-null
-	$aslConf.Add("AslServerFqdn", $AslServerFqdn) | Out-null
+	#$aslConf.Add("AslServerIpAddress", $AslServerIpAddr) | Out-null
+	$aslConf.Add("AslHost", $AslServerHost) | Out-null
+	$aslConf.Add("AslPort", $AslServerPort) | Out-null
+	#$aslConf.Add("AslServerFqdn", $AslServerFqdn) | Out-null
 
 	New-Object -TypeName PSObject -Prop $aslConf
 }
@@ -4075,11 +4077,14 @@ Function Request-LicenseOnPremise
 {
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
-		[ValidateNotNullOrEmpty()]
-		[String]$aslipaddr,
+		#[ValidateNotNullOrEmpty()]
+		#[String]$aslipaddr,
+
+		#[ValidateNotNullOrEmpty()]
+		#[String]$aslname,
 
 		[ValidateNotNullOrEmpty()]
-		[String]$aslname,
+		[String]$aslhost,
 
 		[ValidateNotNullOrEmpty()]
 		[ValidateRange(1, 65535)]
@@ -4131,15 +4136,18 @@ Function Get-AslLicenseType
 {
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
+		#[ValidateNotNullOrEmpty()]
+		#[String]$aslipaddr,
+
 		[ValidateNotNullOrEmpty()]
-		[String]$aslipaddr,
+		[String]$aslhost,
 
 		[ValidateNotNullOrEmpty()]
 		[ValidateRange(1, 65535)]
 		[int]$aslport,
 
-		[ValidateNotNullOrEmpty()]
-		[String]$aslname,
+		#[ValidateNotNullOrEmpty()]
+		#[String]$aslname,
 
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
@@ -7479,6 +7487,8 @@ Function New-AdcVirtualService
 
 		[string]$AllowedDirectories,
 
+		[string]$ExcludedDirectories,
+
 		[string]$AllowedGroups,
 
 		[string]$GroupSIDs,
@@ -7511,7 +7521,7 @@ Function New-AdcVirtualService
 		[ValidateRange(0, 2)]
 		[Int16]$SecurityHeaderOptions,
 
-		[ValidateRange(0, 5)]
+		[ValidateRange(0, 6)]
 		[Int16]$InputAuthMode,
 
 		[ValidateNotNullOrEmpty()]
@@ -7798,6 +7808,8 @@ Function Set-AdcVirtualService
 
 		[string]$AllowedDirectories,
 
+		[string]$ExcludedDirectories,
+
 		[string]$AllowedGroups,
 
 		[string]$GroupSIDs,
@@ -7830,7 +7842,7 @@ Function Set-AdcVirtualService
 		[ValidateRange(0, 2)]
 		[Int16]$SecurityHeaderOptions,
 
-		[ValidateRange(0, 5)]
+		[ValidateRange(0, 6)]
 		[Int16]$InputAuthMode,
 
 		[ValidateNotNullOrEmpty()]
@@ -7886,6 +7898,8 @@ Function Set-AdcVirtualService
 		[string]$ServerFbaPath,
 
 		[string]$ServerFbaPost,
+
+		[string]$AddAuthHeader,
 
 		[bool]$Intercept,
 
@@ -8331,6 +8345,8 @@ Function Set-AdcSubVirtualService
 
 		[string]$AllowedDirectories,
 
+		[string]$ExcludedDirectories,
+
 		[string]$AllowedGroups,
 
 		[string]$GroupSIDs,
@@ -8363,7 +8379,7 @@ Function Set-AdcSubVirtualService
 		[ValidateRange(0, 2)]
 		[Int16]$SecurityHeaderOptions,
 
-		[ValidateRange(0, 5)]
+		[ValidateRange(0, 6)]
 		[Int16]$InputAuthMode,
 
 		[ValidateNotNullOrEmpty()]
@@ -8415,6 +8431,8 @@ Function Set-AdcSubVirtualService
 		[string]$ServerFbaPath,
 
 		[string]$ServerFbaPost,
+
+		[string]$AddAuthHeader,
 
 		[bool]$Intercept,
 
@@ -8524,6 +8542,8 @@ Function New-AdcRealServer
 		[Int64]$Limit = 0,
 
 		[bool]$Critical,
+
+		[bool]$AddToAllSubvs,
 
 		[ValidateRange(0, 65535)]
 		[Int32]$Follow,
@@ -18322,7 +18342,7 @@ Function checkOutputFile($strFileName = "strFileName is mandatory, please provid
 }
 
 # Internal use only
-Function SetSAMLSPEntityParameter($params, $IdpEntityId, $IdpSsoUrl, $IdpLogoffUrl, $IdpCert, $SpEntityId, $SpCert)
+Function SetSAMLSPEntityParameter($params, $IdpEntityId, $IdpSsoUrl, $IdpLogoffUrl, $IdpCert, $SpEntityId, $SpCert, $idp_match_cert)
 {
 	$count = 0
 	if (-not ([String]::IsNullOrEmpty($IdpEntityId))) {
@@ -18347,6 +18367,9 @@ Function SetSAMLSPEntityParameter($params, $IdpEntityId, $IdpSsoUrl, $IdpLogoffU
 	}
 	if (-not ([String]::IsNullOrEmpty($SpCert))) {
 		$params.Add("sp_cert", $SpCert)
+		$count += 1
+	}
+	if ($idp_match_cert -eq 0 -or $idp_match_cert -eq 1) {
 		$count += 1
 	}
 	return $count
@@ -18442,6 +18465,9 @@ Function Set-SAMLSPEntity
 		[ValidateNotNullOrEmpty()]
 		[string]$SpCert,
 
+		[ValidateRange(0, 1)]
+		[int]$idp_match_cert,
+
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
 
@@ -18479,7 +18505,7 @@ Function Set-SAMLSPEntity
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 	$params = ConvertBoundParameters -hashtable $psboundparameters
 
-	$count = SetSAMLSPEntityParameter $params $IdpEntityId $IdpSsoUrl $IdpLogoffUrl $IdpCert $SpEntityId $SpCert
+	$count = SetSAMLSPEntityParameter $params $IdpEntityId $IdpSsoUrl $IdpLogoffUrl $IdpCert $SpEntityId $SpCert $idp_match_cert
 	if ($count -eq 0) {
 		setKempAPIReturnObject 401 "ERROR: you need to set at least one parameter other than Domain" $null
 	}
@@ -21802,10 +21828,10 @@ Export-ModuleMember -function Remove-ClusterNode, NMDeleteNode
 # ==================================================
 
 # SIG # Begin signature block
-# MIIcBAYJKoZIhvcNAQcCoIIb9TCCG/ECAQExDzANBglghkgBZQMEAgEFADB5Bgor
+# MIIcBQYJKoZIhvcNAQcCoIIb9jCCG/ICAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCPQyJQpmDHUImg
-# vSlEehb2Syfn0eILrCgcf/pdEYy2SKCCCtswggVWMIIEPqADAgECAhAZGjLLdZyX
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCGz9P/sKrLZx7W
+# t6WPjUd2Nx3IJQc8MRXxsoiTyaPWfaCCCtswggVWMIIEPqADAgECAhAZGjLLdZyX
 # uM+sEY3VEn9JMA0GCSqGSIb3DQEBCwUAMIHKMQswCQYDVQQGEwJVUzEXMBUGA1UE
 # ChMOVmVyaVNpZ24sIEluYy4xHzAdBgNVBAsTFlZlcmlTaWduIFRydXN0IE5ldHdv
 # cmsxOjA4BgNVBAsTMShjKSAyMDA2IFZlcmlTaWduLCBJbmMuIC0gRm9yIGF1dGhv
@@ -21863,93 +21889,93 @@ Export-ModuleMember -function Remove-ClusterNode, NMDeleteNode
 # Jp3dsVn1GyzmdrnYLlvyQ/b2/qDWmf8GA8gcnhtJQkGU0hPV8OUCaEnt3ia5ZHSp
 # BF0lxbXTRQBb7qLIsz+OyJdOBVa5T3UN7Ghga2LMMUCoZg6xTNtTPuQBOAx7QnEL
 # m0jvnkSdedx/JvxkIO+BKocCaWc/KBnNNRmVqkN6esIHzu1Q+yeYZZNEUVQaNfPa
-# TlDzUq3bSqBaYy8bbNjUn8eW2C+kMYIQfzCCEHsCAQEwgaYwgZExCzAJBgNVBAYT
+# TlDzUq3bSqBaYy8bbNjUn8eW2C+kMYIQgDCCEHwCAQEwgaYwgZExCzAJBgNVBAYT
 # AlVTMR0wGwYDVQQKExRTeW1hbnRlYyBDb3Jwb3JhdGlvbjEfMB0GA1UECxMWU3lt
 # YW50ZWMgVHJ1c3QgTmV0d29yazFCMEAGA1UEAxM5U3ltYW50ZWMgQ2xhc3MgMyBF
 # eHRlbmRlZCBWYWxpZGF0aW9uIENvZGUgU2lnbmluZyBDQSAtIEcyAhAJ44Y2LP+n
 # TrgFMpsb/sD3MA0GCWCGSAFlAwQCAQUAoHwwEAYKKwYBBAGCNwIBDDECMAAwGQYJ
 # KoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGCNwIBCzEOMAwGCisGAQQB
-# gjcCARUwLwYJKoZIhvcNAQkEMSIEIDIyr638INmifgXH9NUit3L+gNjXbzgyHzFV
-# C7vr5ql1MA0GCSqGSIb3DQEBAQUABIIBAHRjNM9OdHpj/C2hMoYkq0Ecc6eX8P56
-# tFKRykFM6Fct46VEg8eEvJPdiD8y//lYIbl/88DEfmk4p+Ds7z2lOCpZz04umnHc
-# N/izd30H5olyUEyOaWy4jMr3lRbuRpiVXK5sKN4+FY6lDfOKd5frz+yviBgfvF6J
-# tDMo3SRbKtv7w1JQ1oeCuNG1qcq4eO6ieM6lzgJSOhvLq7Zv0/xWGwTk5devTMbU
-# ADFdDQFLlB3JwSrSYkanDXElIRnIQT1oXMquZxjROcKCqy+Pu9BF00gRzRfaom+x
-# AL+Ab1/rVd4BXksin+mkmUZ4/PlXDhmfFvJdhj23oX9gpEJ734c7sVyhgg4rMIIO
-# JwYKKwYBBAGCNwMDATGCDhcwgg4TBgkqhkiG9w0BBwKggg4EMIIOAAIBAzENMAsG
-# CWCGSAFlAwQCATCB/gYLKoZIhvcNAQkQAQSgge4EgeswgegCAQEGC2CGSAGG+EUB
-# BxcDMCEwCQYFKw4DAhoFAAQUfEFJLD1ONaEIULIAUhQw2ofKmXcCFHgEqg/S8LDq
-# LFOSSFKHyzYCH5UYGA8yMDE4MDYxNDE1MzAxNlowAwIBHqCBhqSBgzCBgDELMAkG
-# A1UEBhMCVVMxHTAbBgNVBAoTFFN5bWFudGVjIENvcnBvcmF0aW9uMR8wHQYDVQQL
-# ExZTeW1hbnRlYyBUcnVzdCBOZXR3b3JrMTEwLwYDVQQDEyhTeW1hbnRlYyBTSEEy
-# NTYgVGltZVN0YW1waW5nIFNpZ25lciAtIEcyoIIKizCCBTgwggQgoAMCAQICEHsF
-# sdRJaFFE98mJ0pwZnRIwDQYJKoZIhvcNAQELBQAwgb0xCzAJBgNVBAYTAlVTMRcw
-# FQYDVQQKEw5WZXJpU2lnbiwgSW5jLjEfMB0GA1UECxMWVmVyaVNpZ24gVHJ1c3Qg
-# TmV0d29yazE6MDgGA1UECxMxKGMpIDIwMDggVmVyaVNpZ24sIEluYy4gLSBGb3Ig
-# YXV0aG9yaXplZCB1c2Ugb25seTE4MDYGA1UEAxMvVmVyaVNpZ24gVW5pdmVyc2Fs
-# IFJvb3QgQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwHhcNMTYwMTEyMDAwMDAwWhcN
-# MzEwMTExMjM1OTU5WjB3MQswCQYDVQQGEwJVUzEdMBsGA1UEChMUU3ltYW50ZWMg
-# Q29ycG9yYXRpb24xHzAdBgNVBAsTFlN5bWFudGVjIFRydXN0IE5ldHdvcmsxKDAm
-# BgNVBAMTH1N5bWFudGVjIFNIQTI1NiBUaW1lU3RhbXBpbmcgQ0EwggEiMA0GCSqG
-# SIb3DQEBAQUAA4IBDwAwggEKAoIBAQC7WZ1ZVU+djHJdGoGi61XzsAGtPHGsMo8F
-# a4aaJwAyl2pNyWQUSym7wtkpuS7sY7Phzz8LVpD4Yht+66YH4t5/Xm1AONSRBudB
-# fHkcy8utG7/YlZHz8O5s+K2WOS5/wSe4eDnFhKXt7a+Hjs6Nx23q0pi1Oh8eOZ3D
-# 9Jqo9IThxNF8ccYGKbQ/5IMNJsN7CD5N+Qq3M0n/yjvU9bKbS+GImRr1wOkzFNbf
-# x4Dbke7+vJJXcnf0zajM/gn1kze+lYhqxdz0sUvUzugJkV+1hHk1inisGTKPI8Ey
-# QRtZDqk+scz51ivvt9jk1R1tETqS9pPJnONI7rtTDtQ2l4Z4xaE3AgMBAAGjggF3
-# MIIBczAOBgNVHQ8BAf8EBAMCAQYwEgYDVR0TAQH/BAgwBgEB/wIBADBmBgNVHSAE
-# XzBdMFsGC2CGSAGG+EUBBxcDMEwwIwYIKwYBBQUHAgEWF2h0dHBzOi8vZC5zeW1j
-# Yi5jb20vY3BzMCUGCCsGAQUFBwICMBkaF2h0dHBzOi8vZC5zeW1jYi5jb20vcnBh
-# MC4GCCsGAQUFBwEBBCIwIDAeBggrBgEFBQcwAYYSaHR0cDovL3Muc3ltY2QuY29t
-# MDYGA1UdHwQvMC0wK6ApoCeGJWh0dHA6Ly9zLnN5bWNiLmNvbS91bml2ZXJzYWwt
-# cm9vdC5jcmwwEwYDVR0lBAwwCgYIKwYBBQUHAwgwKAYDVR0RBCEwH6QdMBsxGTAX
-# BgNVBAMTEFRpbWVTdGFtcC0yMDQ4LTMwHQYDVR0OBBYEFK9j1sqjToVy4Ke8QfMp
-# ojh/gHViMB8GA1UdIwQYMBaAFLZ3+mlIR59TEtXC6gcydgfRlwcZMA0GCSqGSIb3
-# DQEBCwUAA4IBAQB16rAt1TQZXDJF/g7h1E+meMFv1+rd3E/zociBiPenjxXmQCmt
-# 5l30otlWZIRxMCrdHmEXZiBWBpgZjV1x8viXvAn9HJFHyeLojQP7zJAv1gpsTjPs
-# 1rSTyEyQY0g5QCHE3dZuiZg8tZiX6KkGtwnJj1NXQZAv4R5NTtzKEHhsQm7wtsX4
-# YVxS9U72a433Snq+8839A9fZ9gOoD+NT9wp17MZ1LqpmhQSZt/gGV+HGDvbor9rs
-# mxgfqrnjOgC/zoqUywHbnsc4uw9Sq9HjlANgCk2g/idtFDL8P5dA4b+ZidvkORS9
-# 2uTTw+orWrOVWFUEfcea7CMDjYUq0v+uqWGBMIIFSzCCBDOgAwIBAgIQVFjyqtdB
-# 1kS8hKl7oJZS5jANBgkqhkiG9w0BAQsFADB3MQswCQYDVQQGEwJVUzEdMBsGA1UE
-# ChMUU3ltYW50ZWMgQ29ycG9yYXRpb24xHzAdBgNVBAsTFlN5bWFudGVjIFRydXN0
-# IE5ldHdvcmsxKDAmBgNVBAMTH1N5bWFudGVjIFNIQTI1NiBUaW1lU3RhbXBpbmcg
-# Q0EwHhcNMTcwMTAyMDAwMDAwWhcNMjgwNDAxMjM1OTU5WjCBgDELMAkGA1UEBhMC
-# VVMxHTAbBgNVBAoTFFN5bWFudGVjIENvcnBvcmF0aW9uMR8wHQYDVQQLExZTeW1h
-# bnRlYyBUcnVzdCBOZXR3b3JrMTEwLwYDVQQDEyhTeW1hbnRlYyBTSEEyNTYgVGlt
-# ZVN0YW1waW5nIFNpZ25lciAtIEcyMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
-# CgKCAQEAmfP82AQJA4b511ymk8BCfOp8Y89dAOKO88CQ348p9RjqlLeS5dewoHOB
-# 6OkKm0p8Af+dj6Q5pw7qRfQiDDpw7TlFi+TFG1zwRWhGJAVjdpsc/J5sKrFW5Yp/
-# UnGu8jXVRiMGHM9ILR20zbjZdiOOHP8+v7sGXGkHpmUO+F6ufS7tTa4178nXAEL9
-# KJUOn11yQgm8w9pE0u3MR4Tk/MotrFi+rveu2UQNCLfCd9YaQ3DRbgPeUpLEEAhx
-# 2boiVfIfvO2bnTviXh1Mg/+XD3sL51WDTtIN677X7K5uR7mf36XWUbwEVe3/J3BM
-# ye0qSxPhsblMD8kB7lVlX2kCeGbLPwIDAQABo4IBxzCCAcMwDAYDVR0TAQH/BAIw
-# ADBmBgNVHSAEXzBdMFsGC2CGSAGG+EUBBxcDMEwwIwYIKwYBBQUHAgEWF2h0dHBz
-# Oi8vZC5zeW1jYi5jb20vY3BzMCUGCCsGAQUFBwICMBkaF2h0dHBzOi8vZC5zeW1j
-# Yi5jb20vcnBhMEAGA1UdHwQ5MDcwNaAzoDGGL2h0dHA6Ly90cy1jcmwud3Muc3lt
-# YW50ZWMuY29tL3NoYTI1Ni10c3MtY2EuY3JsMBYGA1UdJQEB/wQMMAoGCCsGAQUF
-# BwMIMA4GA1UdDwEB/wQEAwIHgDB3BggrBgEFBQcBAQRrMGkwKgYIKwYBBQUHMAGG
-# Hmh0dHA6Ly90cy1vY3NwLndzLnN5bWFudGVjLmNvbTA7BggrBgEFBQcwAoYvaHR0
-# cDovL3RzLWFpYS53cy5zeW1hbnRlYy5jb20vc2hhMjU2LXRzcy1jYS5jZXIwKAYD
-# VR0RBCEwH6QdMBsxGTAXBgNVBAMTEFRpbWVTdGFtcC0yMDQ4LTUwHQYDVR0OBBYE
-# FAm1wf6WcpcpQ5rJ4AK6rvj9L7r2MB8GA1UdIwQYMBaAFK9j1sqjToVy4Ke8QfMp
-# ojh/gHViMA0GCSqGSIb3DQEBCwUAA4IBAQAXswqI6VxaXiBrOwoVsmzFqYoyh9Ox
-# 9BxTroW+P5v/17y3lIW0x1J+lOi97WGy1KeZ5MPJk8E1PQvoaApdVpi9sSI70UR6
-# 17/wbVEyitUj3zgBN/biUyt6KxGPt01sejMDG3xrCZQXu+TbWNQhE2Xn7NElyix1
-# mpx//Mm7KmirxH20z6PJbKfZxACciQp3kfRNovsxO4Zu9uYfUAOGm7/LQqvmdpty
-# WhEBisbvpW+V592uuuYiZfAYWRsRyc2At9iXRx9CCPiscR+wRlOz1LLVo6tQdUgS
-# F4Ktz+BBTzJ+zZUcv5GKCD2kp2cClt8kTKXQQcCCYKOKFzJL07zPpLSMMYICWjCC
-# AlYCAQEwgYswdzELMAkGA1UEBhMCVVMxHTAbBgNVBAoTFFN5bWFudGVjIENvcnBv
-# cmF0aW9uMR8wHQYDVQQLExZTeW1hbnRlYyBUcnVzdCBOZXR3b3JrMSgwJgYDVQQD
-# Ex9TeW1hbnRlYyBTSEEyNTYgVGltZVN0YW1waW5nIENBAhBUWPKq10HWRLyEqXug
-# llLmMAsGCWCGSAFlAwQCAaCBpDAaBgkqhkiG9w0BCQMxDQYLKoZIhvcNAQkQAQQw
-# HAYJKoZIhvcNAQkFMQ8XDTE4MDYxNDE1MzAxNlowLwYJKoZIhvcNAQkEMSIEIIFN
-# PFO4bYOGKOqOCu8epdX2Jljo7qumhEVYvVdG6ftbMDcGCyqGSIb3DQEJEAIvMSgw
-# JjAkMCIEIM96wXrQR+zV/cNoIgMbEtTvB4tvK0xea6Qfj/LPS61nMAsGCSqGSIb3
-# DQEBAQSCAQBuKKY5DpKGPMmDc5cD6O6oXniX0DJeayKtBPrbsKGFkCOPyQNgh6Kz
-# Ce0daFQAwUEV+DQvr6gIpCazW+/UmPqfgEOfLDhfpj7UmmY8rRpKo/z2h1G0ZcF5
-# T1rYUD7Q8YXmJXXn1wGMLolWiDC4XHMhErLLhD7BiTKualan0zLKsqzzAEHfzgyt
-# cTH2vTwWx8ApcG6EA7HG+ExcWg3G7Bq12kV8qcC7bgFOetMUyEb42qf20Pv15+40
-# hUSncYWJ6L45UarGQYOJPOGT4tb8MZW9gZBnYpzfH5LFouX05+m7/FhnJRNgBwLS
-# Wrk8z4I5xrDgYCli4UU1wlSeYwMDYR+T
+# gjcCARUwLwYJKoZIhvcNAQkEMSIEII3XJg2a3cbjyK2bHuvAvMp/PAekwOgIWL9a
+# tgP7ZmAvMA0GCSqGSIb3DQEBAQUABIIBAEkYVUAcrTHR56Ykf54mx18ZUDS+wiPc
+# WpJG4u7hBZRml62lzVtF2aA4HcwCDoTm5U+EV8INXlrpz68fLnGBavAsFwWRiaNr
+# dAAdV6A6l+hpn37M5X6E54gy+irFES4NBb4/Los863ykYnORR+QwXZUSC/JR+RXn
+# qAZsQ8cK+CBDQNh+f/q60ruatDiwJgWm6NFRAllR2qg0B7arM+y55cFrJp3v8LMH
+# 0RK7rEN5hNDD16T7BQIctYzTJFNKvxNsKHILUnVcru5Ot2pg+kU/StJ6XyFpDQTz
+# iGSiB6HDgjrl3bj9Q1/qOvA9icnthC0bfDHmC7Ap2bwmqYjL4bdRl1Shgg4sMIIO
+# KAYKKwYBBAGCNwMDATGCDhgwgg4UBgkqhkiG9w0BBwKggg4FMIIOAQIBAzENMAsG
+# CWCGSAFlAwQCATCB/wYLKoZIhvcNAQkQAQSgge8EgewwgekCAQEGC2CGSAGG+EUB
+# BxcDMCEwCQYFKw4DAhoFAAQU2+Ybqnv5q3jZZcTVPxyYLKlZd3kCFQCKz/CH2JjO
+# 4UO7YeVsg9y5O2Tr9BgPMjAxODEwMDMxNTA5NThaMAMCAR6ggYakgYMwgYAxCzAJ
+# BgNVBAYTAlVTMR0wGwYDVQQKExRTeW1hbnRlYyBDb3Jwb3JhdGlvbjEfMB0GA1UE
+# CxMWU3ltYW50ZWMgVHJ1c3QgTmV0d29yazExMC8GA1UEAxMoU3ltYW50ZWMgU0hB
+# MjU2IFRpbWVTdGFtcGluZyBTaWduZXIgLSBHM6CCCoswggU4MIIEIKADAgECAhB7
+# BbHUSWhRRPfJidKcGZ0SMA0GCSqGSIb3DQEBCwUAMIG9MQswCQYDVQQGEwJVUzEX
+# MBUGA1UEChMOVmVyaVNpZ24sIEluYy4xHzAdBgNVBAsTFlZlcmlTaWduIFRydXN0
+# IE5ldHdvcmsxOjA4BgNVBAsTMShjKSAyMDA4IFZlcmlTaWduLCBJbmMuIC0gRm9y
+# IGF1dGhvcml6ZWQgdXNlIG9ubHkxODA2BgNVBAMTL1ZlcmlTaWduIFVuaXZlcnNh
+# bCBSb290IENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTE2MDExMjAwMDAwMFoX
+# DTMxMDExMTIzNTk1OVowdzELMAkGA1UEBhMCVVMxHTAbBgNVBAoTFFN5bWFudGVj
+# IENvcnBvcmF0aW9uMR8wHQYDVQQLExZTeW1hbnRlYyBUcnVzdCBOZXR3b3JrMSgw
+# JgYDVQQDEx9TeW1hbnRlYyBTSEEyNTYgVGltZVN0YW1waW5nIENBMIIBIjANBgkq
+# hkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu1mdWVVPnYxyXRqBoutV87ABrTxxrDKP
+# BWuGmicAMpdqTclkFEspu8LZKbku7GOz4c8/C1aQ+GIbfuumB+Lef15tQDjUkQbn
+# QXx5HMvLrRu/2JWR8/DubPitljkuf8EnuHg5xYSl7e2vh47Ojcdt6tKYtTofHjmd
+# w/SaqPSE4cTRfHHGBim0P+SDDSbDewg+TfkKtzNJ/8o71PWym0vhiJka9cDpMxTW
+# 38eA25Hu/rySV3J39M2ozP4J9ZM3vpWIasXc9LFL1M7oCZFftYR5NYp4rBkyjyPB
+# MkEbWQ6pPrHM+dYr77fY5NUdbRE6kvaTyZzjSO67Uw7UNpeGeMWhNwIDAQABo4IB
+# dzCCAXMwDgYDVR0PAQH/BAQDAgEGMBIGA1UdEwEB/wQIMAYBAf8CAQAwZgYDVR0g
+# BF8wXTBbBgtghkgBhvhFAQcXAzBMMCMGCCsGAQUFBwIBFhdodHRwczovL2Quc3lt
+# Y2IuY29tL2NwczAlBggrBgEFBQcCAjAZGhdodHRwczovL2Quc3ltY2IuY29tL3Jw
+# YTAuBggrBgEFBQcBAQQiMCAwHgYIKwYBBQUHMAGGEmh0dHA6Ly9zLnN5bWNkLmNv
+# bTA2BgNVHR8ELzAtMCugKaAnhiVodHRwOi8vcy5zeW1jYi5jb20vdW5pdmVyc2Fs
+# LXJvb3QuY3JsMBMGA1UdJQQMMAoGCCsGAQUFBwMIMCgGA1UdEQQhMB+kHTAbMRkw
+# FwYDVQQDExBUaW1lU3RhbXAtMjA0OC0zMB0GA1UdDgQWBBSvY9bKo06FcuCnvEHz
+# KaI4f4B1YjAfBgNVHSMEGDAWgBS2d/ppSEefUxLVwuoHMnYH0ZcHGTANBgkqhkiG
+# 9w0BAQsFAAOCAQEAdeqwLdU0GVwyRf4O4dRPpnjBb9fq3dxP86HIgYj3p48V5kAp
+# reZd9KLZVmSEcTAq3R5hF2YgVgaYGY1dcfL4l7wJ/RyRR8ni6I0D+8yQL9YKbE4z
+# 7Na0k8hMkGNIOUAhxN3WbomYPLWYl+ipBrcJyY9TV0GQL+EeTU7cyhB4bEJu8LbF
+# +GFcUvVO9muN90p6vvPN/QPX2fYDqA/jU/cKdezGdS6qZoUEmbf4Blfhxg726K/a
+# 7JsYH6q54zoAv86KlMsB257HOLsPUqvR45QDYApNoP4nbRQy/D+XQOG/mYnb5DkU
+# vdrk08PqK1qzlVhVBH3HmuwjA42FKtL/rqlhgTCCBUswggQzoAMCAQICEHvU5a+6
+# zAc/oQEjBCJBTRIwDQYJKoZIhvcNAQELBQAwdzELMAkGA1UEBhMCVVMxHTAbBgNV
+# BAoTFFN5bWFudGVjIENvcnBvcmF0aW9uMR8wHQYDVQQLExZTeW1hbnRlYyBUcnVz
+# dCBOZXR3b3JrMSgwJgYDVQQDEx9TeW1hbnRlYyBTSEEyNTYgVGltZVN0YW1waW5n
+# IENBMB4XDTE3MTIyMzAwMDAwMFoXDTI5MDMyMjIzNTk1OVowgYAxCzAJBgNVBAYT
+# AlVTMR0wGwYDVQQKExRTeW1hbnRlYyBDb3Jwb3JhdGlvbjEfMB0GA1UECxMWU3lt
+# YW50ZWMgVHJ1c3QgTmV0d29yazExMC8GA1UEAxMoU3ltYW50ZWMgU0hBMjU2IFRp
+# bWVTdGFtcGluZyBTaWduZXIgLSBHMzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCC
+# AQoCggEBAK8Oiqr43L9pe1QXcUcJvY08gfh0FXdnkJz93k4Cnkt29uU2PmXVJCBt
+# MPndHYPpPydKM05tForkjUCNIqq+pwsb0ge2PLUaJCj4G3JRPcgJiCYIOvn6QyN1
+# R3AMs19bjwgdckhXZU2vAjxA9/TdMjiTP+UspvNZI8uA3hNN+RDJqgoYbFVhV9Hx
+# AizEtavybCPSnw0PGWythWJp/U6FwYpSMatb2Ml0UuNXbCK/VX9vygarP0q3InZl
+# 7Ow28paVgSYs/buYqgE4068lQJsJU/ApV4VYXuqFSEEhh+XetNMmsntAU1h5jlIx
+# Bk2UA0XEzjwD7LcA8joixbRv5e+wipsCAwEAAaOCAccwggHDMAwGA1UdEwEB/wQC
+# MAAwZgYDVR0gBF8wXTBbBgtghkgBhvhFAQcXAzBMMCMGCCsGAQUFBwIBFhdodHRw
+# czovL2Quc3ltY2IuY29tL2NwczAlBggrBgEFBQcCAjAZGhdodHRwczovL2Quc3lt
+# Y2IuY29tL3JwYTBABgNVHR8EOTA3MDWgM6Axhi9odHRwOi8vdHMtY3JsLndzLnN5
+# bWFudGVjLmNvbS9zaGEyNTYtdHNzLWNhLmNybDAWBgNVHSUBAf8EDDAKBggrBgEF
+# BQcDCDAOBgNVHQ8BAf8EBAMCB4AwdwYIKwYBBQUHAQEEazBpMCoGCCsGAQUFBzAB
+# hh5odHRwOi8vdHMtb2NzcC53cy5zeW1hbnRlYy5jb20wOwYIKwYBBQUHMAKGL2h0
+# dHA6Ly90cy1haWEud3Muc3ltYW50ZWMuY29tL3NoYTI1Ni10c3MtY2EuY2VyMCgG
+# A1UdEQQhMB+kHTAbMRkwFwYDVQQDExBUaW1lU3RhbXAtMjA0OC02MB0GA1UdDgQW
+# BBSlEwGpn4XMG24WHl87Map5NgB7HTAfBgNVHSMEGDAWgBSvY9bKo06FcuCnvEHz
+# KaI4f4B1YjANBgkqhkiG9w0BAQsFAAOCAQEARp6v8LiiX6KZSM+oJ0shzbK5pnJw
+# Yy/jVSl7OUZO535lBliLvFeKkg0I2BC6NiT6Cnv7O9Niv0qUFeaC24pUbf8o/mfP
+# cT/mMwnZolkQ9B5K/mXM3tRr41IpdQBKK6XMy5voqU33tBdZkkHDtz+G5vbAf0Q8
+# RlwXWuOkO9VpJtUhfeGAZ35irLdOLhWa5Zwjr1sR6nGpQfkNeTipoQ3PtLHaPpp6
+# xyLFdM3fRwmGxPyRJbIblumFCOjd6nRgbmClVnoNyERY3Ob5SBSe5b/eAL13sZgU
+# chQk38cRLB8AP8NLFMZnHMweBqOQX1xUiz7jM1uCD8W3hgJOcZ/pZkU/djGCAlow
+# ggJWAgEBMIGLMHcxCzAJBgNVBAYTAlVTMR0wGwYDVQQKExRTeW1hbnRlYyBDb3Jw
+# b3JhdGlvbjEfMB0GA1UECxMWU3ltYW50ZWMgVHJ1c3QgTmV0d29yazEoMCYGA1UE
+# AxMfU3ltYW50ZWMgU0hBMjU2IFRpbWVTdGFtcGluZyBDQQIQe9Tlr7rMBz+hASME
+# IkFNEjALBglghkgBZQMEAgGggaQwGgYJKoZIhvcNAQkDMQ0GCyqGSIb3DQEJEAEE
+# MBwGCSqGSIb3DQEJBTEPFw0xODEwMDMxNTA5NThaMC8GCSqGSIb3DQEJBDEiBCC4
+# nADqVI82qqmMx3GTimBavGGP7b0gjO9VJaf+muCFDzA3BgsqhkiG9w0BCRACLzEo
+# MCYwJDAiBCDEdM52AH0COU4NpeTefBTGgPniggE8/vZT7123H99h+DALBgkqhkiG
+# 9w0BAQEEggEAjsMX2DIs7fliWRNzA6zj4iseCPoe0YLkO+HBAi+eqJNVits+06+a
+# VScpZZsuRuaKnpoWr4rsYUpXf3gKRAjbVUVEPwhWt+6jky9SkZI1r7I7NvKu9eQk
+# +sHoKKq/eU9CVcjJdmInBC6c4u40/R0w+cSaQbawsAtV7Y60eVPD7vF8yQa8HuLt
+# Q+mSst7/d1x/ulCgWsoZHNDwmd0SdefWgID0aC3t4tiO6lMTOmXCiNUrpssiSUs+
+# QoQc7jJEQPJX2b/6yqSv+adaP6jhIXOJd4FLgtQzlsJD7q4OvCScDT/QsNKupEaT
+# k2Ui0RjU8Gwp+Z1bAb1zNCy1501zduF0lg==
 # SIG # End signature block
