@@ -1,0 +1,11 @@
+Thu Oct  4 16:03:27 EDT 2018
+PowerShell module updates
+ - Request-LicenseOnPremise, Get-AslLicenseType: the parameters aslipaddr and aslname have been replaced by aslhost. 
+ - New-AdcVirtualService: added new parameter ExcludeDirectories, fixed ange values for InputAuthMode
+ - Set-AdcVirtualService: added new parameter ExcludeDirectories, fixed ange values for InputAuthMode,
+                          added new parameter AddAuthHeader
+ - Set-AdcSubVirtualService: added new parameter ExcludeDirectories, fixed ange values for InputAuthMode
+ - New-AdcRealServer: added new parameter AddToAllSubvs
+ - Set-SAMLSPEntity: added new parameter idp_match_cert
+
+
