@@ -1,5 +1,5 @@
 #
-# $Id: Kemp.LoadBalancer.Powershell.psm1 16625 2018-09-20 13:17:12Z fcarpin $
+# $Id: Kemp.LoadBalancer.Powershell.psm1 16967 2018-12-20 19:52:31Z fcarpin $
 #
 
 $ScriptDir = Split-Path -parent $MyInvocation.MyCommand.Path
@@ -2553,6 +2553,118 @@ Function SetGetRaidControllerDiskReturnObject($xmlAnsw)
 	New-Object -TypeName PSObject -Property $ht
 }
 
+# Internal use only
+Function SetGetExtEspLogConfReturnObject($xmlAnsw)
+{
+	$data = $xmlAnsw.Response.Success.Data
+
+	$status = "disabled"
+	if (-not ([String]::IsNullOrEmpty($data)) ) {
+		if ($data.Contains("enabled") -eq $true) {
+			$status = "enabled"
+		}
+	}
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "ExtEspLogConfiguration"
+
+	$ht.add("ExtEspLogStatus", $status)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
+# Internal use only
+Function SetGetLmLogFilesList($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "LmLogFilesList" $xmlAnsw.Response.Success.Data.SyslogFiles
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "LmLogFilesList"
+
+	$ht.add("SyslogFiles", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
+# Internal use only
+Function SetGetLmLogResetFilesList($xmlAnsw)
+{
+	$data = $xmlAnsw.Response.Success -replace "`n",", " -replace "`r",", "
+	if (-not ([String]::IsNullOrEmpty($data)) ) {
+		if ($data -ne "Command completed ok") {
+			$len = $data.Length
+			if ($data.Substring($len - 1) -eq ",") {
+				$data = $data -replace ".$" 
+			}
+			$len = $data.Length
+			if ($data.Substring($len - 1) -eq " ") {
+				$data = $data -replace ".$" 
+			}
+			$data = "Reset files: $data"
+		}
+		else {
+			$data = "Reset files: all"
+		}
+	}
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "LmLogResetFilesList"
+
+	if (-not ([String]::IsNullOrEmpty($data)) ) {
+		if ($data -ne "Command completed ok") {
+			$ht.add("SyslogResetFiles", $data)
+		}
+	}
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
+# Internal use only
+Function SetGetLmExtendedLogFilesList($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "LmExtendedLogFilesList" $xmlAnsw.Response.Success.Data.ExtlogFiles
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "LmExtendedLogFilesList"
+
+	$ht.add("ExtendedLogFiles", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
+# Internal use only
+Function SetGetLmExtendedLogResetFilesList($xmlAnsw)
+{
+	$data = $xmlAnsw.Response.Success -replace "`n",", " -replace "`r",", "
+	if (-not ([String]::IsNullOrEmpty($data)) ) {
+		if ($data -ne "Command completed ok") {
+			$len = $data.Length
+			if ($data.Substring($len - 1) -eq ",") {
+				$data = $data -replace ".$" 
+			}
+			$len = $data.Length
+			if ($data.Substring($len - 1) -eq " ") {
+				$data = $data -replace ".$" 
+			}
+			$data = "Reset files: $data"
+		}
+		else {
+			$data = "Reset files: all"
+		}
+	}
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "LmExtendedLogResetFilesList"
+
+	if (-not ([String]::IsNullOrEmpty($data)) ) {
+		if ($data -ne "Command completed ok") {
+			$ht.add("ExtendedLogResetFiles", $data)
+		}
+	}
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
 # Function "pointers" hashtable: success lm answer handlers
 $successHandlerList = [ordered]@{
 	GeneralCase = (gi function:SetGeneralCaseReturnObject)
@@ -2595,6 +2707,12 @@ $successHandlerList = [ordered]@{
 	GetTlsCertificate = (gi function:SetTLSCertificateReturnObject)
 	GetTlsCipherSet = (gi function:SetGetTLSCipherSetReturnObject)
 	TlsHSM = (gi function:SetTLSHSMReturnObject)
+
+	GetExtEspLogConfiguration =  (gi function:SetGetExtEspLogConfReturnObject)
+	GetLmLogFilesList =  (gi function:SetGetLmLogFilesList)
+	GetLmLogResetFilesList =  (gi function:SetGetLmLogResetFilesList)
+	GetLmExtendedLogFilesList =  (gi function:SetGetLmExtendedLogFilesList)
+	GetLmExtendedLogResetFilesList =  (gi function:SetGetLmExtendedLogResetFilesList)
 
 	GetSSODomain = (gi function:SetGetSSODomainReturnObject)
 	GetSSOSamlDomain = (gi function:SetGetSSOSamlDomainReturnObject)
@@ -2743,7 +2861,7 @@ Function HandleErrorAnswer($Command2ExecClass, $xmlAnsw)
 	#
 	switch ($Command2ExecClass)
 	{
-		{ ($_ -in "GeneralCase", "NewAdcVS", "GetAdcVS_Single", "GetAdcVS_List", "SetAdcVS", "NewAdcRS", "VirtualServiceRule", "RealServerRule", "EnableDisableRS", "GetSetAdcRS", "RemoveAdcRS", "AddAdcContentRule", "RemoveAdcContentRule", "SetAdcContentRule", "GetAdcContentRule", "GetAdcServiceHealth","AdcHttpExceptions", "AdcAdaptiveHealthCheck", "AdcWafVSRules", "AddRemoveAdcWafRule", "GetLicenseAccessKey", "GetLicenseType", "GetLicenseInfo", "RequestLicenseOnline", "RequestLicenseOffline", "UpdateLicenseOnline", "UpdateLicenseOffline", "RequestLicenseOnPremise", "GetAllSecUser", "GetSingleSecUser", "GetRemoteGroup", "GetAllRemoteGroups", "GetNetworkInterface", "GetAllParameters", "GetLmNetworkInterface", "GetTlsCertificate", "GetTlsCipherSet", "TlsHSM", "GetSSODomain", "GetSSOSamlDomain", "GetSSODomainLockedUser", "SetSSODomainLockedUser", "GetSSODomainSession", "InstallTemplate", "ExportVSTemplate", "GetTemplate", "GetLogStatistics", "GetWafRules", "GetWafRulesAutoUpdateConfiguration", "GetWafAuditFiles", "GetGeoFQDN", "GetGeoStats", "AddGeoCluster", "SetGeoCluster", "AddNetworkVxLAN", "AddNetworkVLAN", "GetNetworkRoute", "TestNetworkRoute", "GetHosts", "GetVSTotals", "GetLdapEndpoint", "GetVpnConnection", "InstallLmAddon", "GetLmAddOn", "InstallLmPatch", "UninstallLmPatch", "GetLmPreviousFirmwareVersion", "AddSdnController", "SetSdnController", "GetSdnController", "RemoveSdnController", "GetAdcRealServer", "SetGeoFQDNSiteAddress", "GetGeoCustomLocation", "GetGeoIpRange", "TestLmGeoEnabled", "GetGeoPartnerStatus", "GetGeoIPBlacklistDatabaseConfiguration", "GetGeoIPWhitelist", "ExportGeoIPWhitelistDatabase", "GetGeoDNSSECConfiguration", "GetGeoLmMiscParameter", "GetVSPacketFilterACL", "GetPacketFilterOption", "GetGlobalPacketFilterACL", "GetLmIPConnectionLimit", "GetAzureHAConfiguration", "GetAwsHaConfiguration", "GetLmCloudHaConfiguration", "GetLmDebugInformation", "GetAslLicenseType", "GetLmVpnIkeDaemonStatus", "NewLmVpnConnection", "GetClusterStatus", "NewCluster", "GetRaidController", "GetRaidControllerDisk") } {
+		{ ($_ -in "GeneralCase", "NewAdcVS", "GetAdcVS_Single", "GetAdcVS_List", "SetAdcVS", "NewAdcRS", "VirtualServiceRule", "RealServerRule", "EnableDisableRS", "GetSetAdcRS", "RemoveAdcRS", "AddAdcContentRule", "RemoveAdcContentRule", "SetAdcContentRule", "GetAdcContentRule", "GetAdcServiceHealth","AdcHttpExceptions", "AdcAdaptiveHealthCheck", "AdcWafVSRules", "AddRemoveAdcWafRule", "GetLicenseAccessKey", "GetLicenseType", "GetLicenseInfo", "RequestLicenseOnline", "RequestLicenseOffline", "UpdateLicenseOnline", "UpdateLicenseOffline", "RequestLicenseOnPremise", "GetAllSecUser", "GetSingleSecUser", "GetRemoteGroup", "GetAllRemoteGroups", "GetNetworkInterface", "GetAllParameters", "GetLmNetworkInterface", "GetTlsCertificate", "GetTlsCipherSet", "TlsHSM", "GetSSODomain", "GetSSOSamlDomain", "GetSSODomainLockedUser", "SetSSODomainLockedUser", "GetSSODomainSession", "InstallTemplate", "ExportVSTemplate", "GetTemplate", "GetLogStatistics", "GetWafRules", "GetWafRulesAutoUpdateConfiguration", "GetWafAuditFiles", "GetGeoFQDN", "GetGeoStats", "AddGeoCluster", "SetGeoCluster", "AddNetworkVxLAN", "AddNetworkVLAN", "GetNetworkRoute", "TestNetworkRoute", "GetHosts", "GetVSTotals", "GetLdapEndpoint", "GetVpnConnection", "InstallLmAddon", "GetLmAddOn", "InstallLmPatch", "UninstallLmPatch", "GetLmPreviousFirmwareVersion", "AddSdnController", "SetSdnController", "GetSdnController", "RemoveSdnController", "GetAdcRealServer", "SetGeoFQDNSiteAddress", "GetGeoCustomLocation", "GetGeoIpRange", "TestLmGeoEnabled", "GetGeoPartnerStatus", "GetGeoIPBlacklistDatabaseConfiguration", "GetGeoIPWhitelist", "ExportGeoIPWhitelistDatabase", "GetGeoDNSSECConfiguration", "GetGeoLmMiscParameter", "GetVSPacketFilterACL", "GetPacketFilterOption", "GetGlobalPacketFilterACL", "GetLmIPConnectionLimit", "GetAzureHAConfiguration", "GetAwsHaConfiguration", "GetLmCloudHaConfiguration", "GetLmDebugInformation", "GetAslLicenseType", "GetLmVpnIkeDaemonStatus", "NewLmVpnConnection", "GetClusterStatus", "NewCluster", "GetRaidController", "GetRaidControllerDisk", "GetExtEspLogConfiguration", "GetLmLogFilesList", "GetLmLogResetFilesList", "GetLmExtendedLogFilesList", "GetLmExtendedLogResetFilesList") } {
 			$errMsg = $xmlAnsw.Response.Error
 		}
 
@@ -4077,12 +4195,6 @@ Function Request-LicenseOnPremise
 {
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
-		#[ValidateNotNullOrEmpty()]
-		#[String]$aslipaddr,
-
-		#[ValidateNotNullOrEmpty()]
-		#[String]$aslname,
-
 		[ValidateNotNullOrEmpty()]
 		[String]$aslhost,
 
@@ -4664,6 +4776,7 @@ Function Set-LogSyslogConfiguration
 		[string]$SyslogInfo,
 		[string]$SyslogNotice,
 		[string]$SyslogWarn,
+		[string]$SysLogNone,
 
 		[UInt16]$SyslogPort,
 
@@ -4689,7 +4802,7 @@ Function Set-LogSyslogConfiguration
 	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 
 	$params = getConnParameters_2 $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
-	$parameters2set = ConvertBoundParameters -hashtable $psboundparameters
+	$parameters2set = ConvertBoundParameters -hashtable $psboundparameters -SkipEncoding
 
 	foreach($param in $parameters2set.Keys) {
 
@@ -4901,6 +5014,414 @@ Function Reset-LmWafDebugLogs
 	}
 }
 Export-ModuleMember -function Reset-LmWafDebugLogs
+
+Function Get-EspExtendedLogConfiguration
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$cmd = "logging/isextesplogenabled"
+		$response = SendCmdToLm -Command "$Cmd" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetExtEspLogConfiguration" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+		return
+	}
+}
+Export-ModuleMember -function Get-EspExtendedLogConfiguration
+
+Function Set-EspExtendedLogConfiguration
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateSet("yes", "no")]
+		[string]$EspExtendedLogEnable,
+
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		if ($EspExtendedLogEnable -eq "yes") {
+			$cmd = "logging/enableextesplog"
+		}
+		else {
+			$cmd = "logging/disableextesplog"
+		}
+		$response = SendCmdToLm -Command "$Cmd" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+		return
+	}
+}
+Export-ModuleMember -function Set-EspExtendedLogConfiguration
+
+Function Get-LmSyslogFile
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$cmd = "logging/listsyslogfiles"
+		$response = SendCmdToLm -Command "$Cmd" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetLmLogFilesList" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+		return
+	}
+}
+Export-ModuleMember -function Get-LmSyslogFile
+
+Function Reset-LmSyslogFile
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[string]$FileToReset,
+
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters -SkipEncoding
+
+	try {
+		$cmd = "logging/clearlogs"
+		if (-not ([String]::IsNullOrEmpty($FileToReset))) {
+			$params.Remove("FileToReset")
+			$params.Add("fsel", $FileToReset)
+		}
+		$response = SendCmdToLm -Command "$Cmd" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetLmLogResetFilesList" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+		return
+	}
+}
+Export-ModuleMember -function Reset-LmSyslogFile
+
+Function Export-LmSyslogFile
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[string]$FileToExport,
+
+		[string]$Path,
+
+		[string]$OutputFileName,
+
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters -SkipEncoding
+
+	if (-not ($Path)) {
+		$Path = "$($Env:SystemRoot)\Temp\"
+	}
+
+	if (-not ($OutputFileName)) {
+		$OutputFileName = "LM-SyslogFile_$(Get-Date -format yyyy-MM-dd_HH-mm-ss).tar.gz"
+	}
+
+	if ($OutputFileName.Contains(".tar.gz") -eq $false) {
+			$OutputFileName = $OutputFileName + ".tar.gz"
+	}
+
+	$Path = validatePath $Path $OutputFileName
+
+	try {
+		$cmd = "logging/savelogs"
+		if (-not ([String]::IsNullOrEmpty($FileToExport))) {
+			$params.Remove("FileToExport")
+			$params.Add("fsel", $FileToExport)
+		}
+		if (-not ([String]::IsNullOrEmpty($Path))) {
+			$params.Remove("Path")
+		}
+		if (-not ([String]::IsNullOrEmpty($OutputFileName))) {
+			$params.Remove("OutputFileName")
+		}
+		$response = SendCmdToLm -Command "$cmd" -ParameterValuePair $params -File $Path -Output -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+		return
+	}
+}
+Export-ModuleMember -function Export-LmSyslogFile
+
+Function Get-LmExtendedLogFile
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$cmd = "logging/listextlogfiles"
+		$response = SendCmdToLm -Command "$Cmd" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetLmExtendedLogFilesList" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+		return
+	}
+}
+Export-ModuleMember -function Get-LmExtendedLogFile
+
+Function Reset-LmExtendedLogFile
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[string]$FileToReset,
+
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters -SkipEncoding
+
+	try {
+		$cmd = "logging/clearextlogs"
+		if (-not ([String]::IsNullOrEmpty($FileToReset))) {
+			$params.Remove("FileToReset")
+			$params.Add("fsel", $FileToReset)
+		}
+		$response = SendCmdToLm -Command "$Cmd" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetLmExtendedLogResetFilesList" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+		return
+	}
+}
+Export-ModuleMember -function Reset-LmExtendedLogFile
+
+Function Export-LmExtendedLogFile
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[string]$FileToExport,
+
+		[string]$Path,
+
+		[string]$OutputFileName,
+
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters -SkipEncoding
+
+	if (-not ($Path)) {
+		$Path = "$($Env:SystemRoot)\Temp\"
+	}
+
+	if (-not ($OutputFileName)) {
+		$OutputFileName = "LM-EspLogFile_$(Get-Date -format yyyy-MM-dd_HH-mm-ss).tar.gz"
+	}
+
+	if ($OutputFileName.Contains(".tar.gz") -eq $false) {
+			$OutputFileName = $OutputFileName + ".tar.gz"
+	}
+
+	$Path = validatePath $Path $OutputFileName
+
+	try {
+		$cmd = "logging/saveextlogs"
+		if (-not ([String]::IsNullOrEmpty($FileToExport))) {
+			$params.Remove("FileToExport")
+			$params.Add("fsel", $FileToExport)
+		}
+		if (-not ([String]::IsNullOrEmpty($Path))) {
+			$params.Remove("Path")
+		}
+		if (-not ([String]::IsNullOrEmpty($OutputFileName))) {
+			$params.Remove("OutputFileName")
+		}
+		$response = SendCmdToLm -Command "$cmd" -ParameterValuePair $params -File $Path -Output -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+		return
+	}
+}
+Export-ModuleMember -function Export-LmExtendedLogFile
 
 # ==================================================
 # endregion LOGGING
@@ -5144,6 +5665,17 @@ Function Set-SSODomain
 
 		[Parameter(ValueFromPipelineByPropertyName=$true)]
 		[string]$testpass,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(0, 1)]
+		[int]$ldapephc,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(0, 1)]
+		[int]$radius_send_nas_id = 0,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$radius_nas_id,
 
 		[Parameter(ValueFromPipelineByPropertyName=$true)]
 		[Alias("Secret")]
@@ -7527,7 +8059,7 @@ Function New-AdcVirtualService
 		[ValidateNotNullOrEmpty()]
 		[string]$OutConf,
 
-		[ValidateRange(0, 3)]
+		[ValidateRange(0, 4)]
 		[Int16]$OutputAuthMode,
 
 		[ValidateRange(0, 1)]
@@ -7545,7 +8077,7 @@ Function New-AdcVirtualService
 
 		[Int32]$FollowVSID,
 
-		[ValidateRange(0, 14)]
+		[ValidateRange(0, 30)]
 		[int]$TlsType = 0,
 
 		[string]$CheckPostData,
@@ -7848,7 +8380,7 @@ Function Set-AdcVirtualService
 		[ValidateNotNullOrEmpty()]
 		[string]$OutConf,
 
-		[ValidateRange(0, 3)]
+		[ValidateRange(0, 4)]
 		[Int16]$OutputAuthMode,
 
 		[ValidateRange(0, 1)]
@@ -7866,7 +8398,7 @@ Function Set-AdcVirtualService
 
 		[Int32]$FollowVSID,
 
-		[ValidateRange(0, 14)]
+		[ValidateRange(0, 30)]
 		[int]$TlsType = 0,
 
 		[string]$CheckPostData,
@@ -8385,7 +8917,7 @@ Function Set-AdcSubVirtualService
 		[ValidateNotNullOrEmpty()]
 		[string]$OutConf,
 
-		[ValidateRange(0, 3)]
+		[ValidateRange(0, 4)]
 		[Int16]$OutputAuthMode,
 
 		[ValidateRange(0, 1)]
@@ -8399,7 +8931,7 @@ Function Set-AdcSubVirtualService
 
 		[Int32]$FollowVSID,
 
-		[ValidateRange(0, 14)]
+		[ValidateRange(0, 30)]
 		[int]$TlsType = 0,
 
 		[string]$CheckPostData,
@@ -11496,7 +12028,7 @@ Function Set-SecAdminWuiConfiguration
 {
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
-		[ValidateRange(0, 14)]
+		[ValidateRange(0, 30)]
 		[int]$WUITLSProtocols,
 
 		[ValidateSet("Default", "Default_NoRc4", "BestPractices", "Intermediate_compatibility", "Backward_compatibility", "WUI", "FIPS", "Legacy")]
@@ -17276,20 +17808,6 @@ Function Restore-LmConfiguration
 }
 Export-ModuleMember -function Restore-LmConfiguration, Restore-LoadBalancer
 
-# Internal use only
-Function mapBackupSecureInt($paramsHt, $backupsecure)
-{
-	if ($paramsHt) {
-
-		if ($backupsecure -eq "no") {
-			$paramsHt.Add("BackupMethod", "Ftp")
-		}
-		else {
-			$paramsHt.Add("BackupMethod", "SCP")
-		}
-	}
-}
-
 #.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
 Function Get-LmBackupConfiguration
 {
@@ -17317,7 +17835,7 @@ Function Get-LmBackupConfiguration
 	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 
 	$bckParams = @("backupenable", "backuphour", "backupminute", "backupday", "backupsecure",
-	               "backupuser", "backuppassword", "backuphost", "backuppath")
+	               "backupmethod", "backupuser", "backuppassword", "backuphost", "backuppath")
 
 	$bckSettings = [ordered]@{}
 	$bckSettings.PSTypeName = "BackupConfiguration"
@@ -17327,12 +17845,10 @@ Function Get-LmBackupConfiguration
 			return $lma
 		}
 		$paramValue = $lma.Data.$param
-		if ($param -eq "backupsecure") {
-			mapBackupSecureInt $bckSettings $paramValue
+		if ($paramValue -eq "wput") {
+			$paramValue = "ftp"
 		}
-		else {
-			$bckSettings.Add($param, $paramValue)
-		}
+		$bckSettings.Add($param, $paramValue)
 
 		Start-Sleep -m 200
 	}
@@ -17346,21 +17862,6 @@ Function Get-LmBackupConfiguration
 	setKempAPIReturnObject 200 "Command successfully executed" $bckObject
 }
 Export-ModuleMember -function Get-LmBackupConfiguration, Get-BackupOption
-
-# Internal use only
-Function mapBackupSecureString($paramsHt, $BackupMethod)
-{
-	if ($paramsHt -and $paramsHt.ContainsKey("BackupMethod")) {
-		$paramsHt.Remove("BackupMethod")
-
-		if ($BackupMethod -eq "Ftp") {
-			$paramsHt.Add("backupsecure", 0)
-		}
-		else {
-			$paramsHt.Add("backupsecure", 1)
-		}
-	}
-}
 
 #.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
 Function Set-LmBackupConfiguration
@@ -17379,7 +17880,7 @@ Function Set-LmBackupConfiguration
 		[ValidateRange(0, 7)]
 		[Int16]$BackupDay,
 
-		[ValidateSet("Ftp", "SCP")]
+		[ValidateSet("ftp", "sftp", "scp")]
 		[string]$BackupMethod,
 
 		[string]$BackupUser,
@@ -17419,6 +17920,15 @@ Function Set-LmBackupConfiguration
 	}
 	$params.Remove("param")
 
+	if ($BackupMethod) {
+		if ($BackupMethod -eq "ftp") {
+			$BackupMethod_ = "wput"
+		}
+		else {
+			$BackupMethod_ = $BackupMethod
+		}
+	}
+
 	$params2Get = @("backupenable")
 	if ($response.Data.backupenable -eq "yes") {
 		if ($BackupEnable -and $BackupEnable -eq "no") {
@@ -17436,7 +17946,10 @@ Function Set-LmBackupConfiguration
 			# OK: set all the parametes
 			$parameters2set = ConvertBoundParameters -hashtable $psboundparameters -SkipEncoding
 			$parameters2set.Remove("backupenable")
-			mapBackupSecureString $parameters2set $BackupMethod
+			if ($BackupMethod_) {
+				$parameters2set.Remove("backupmethod")
+				$parameters2set.Add("backupmethod", $BackupMethod_)
+			}
 			$lma = SetParameterSet $parameters2set $params ([ref]$params2Get)
 			if ($lma.ReturnCode -ne 200) {
 				return $lma
@@ -17457,7 +17970,10 @@ Function Set-LmBackupConfiguration
 
 			$parameters2set = ConvertBoundParameters -hashtable $psboundparameters -SkipEncoding
 			$parameters2set.Remove("backupenable")
-			mapBackupSecureString $parameters2set $BackupMethod
+			if ($BackupMethod_) {
+				$parameters2set.Remove("backupmethod")
+				$parameters2set.Add("backupmethod", $BackupMethod_)
+			}
 			$lma = SetParameterSet $parameters2set $params ([ref]$params2Get)
 			if ($lma.ReturnCode -ne 200) {
 				return $lma
@@ -17469,18 +17985,15 @@ Function Set-LmBackupConfiguration
 			return
 		}
 	}
-	$response = GetLmParameterSet $params2Get "Parameters" $params
-	if ($response.ReturnCode -eq 200) {
-		if ($response.Data.Parameters.backupsecure) {
-			if ($response.Data.Parameters.backupsecure -eq "no") {
-				$response.Data.Parameters.backupsecure = "Ftp"
-			}
-			else {
-				$response.Data.Parameters.backupsecure = "SCP"
-			}
-		}
-	}
-	$response
+  $response = GetLmParameterSet $params2Get "Parameters" $params
+  if ($response.ReturnCode -eq 200) {
+    if ($response.Data.Parameters.backupmethod) {
+      if ($response.Data.Parameters.backupmethod -eq "wput") {
+        $response.Data.Parameters.backupmethod = "ftp"
+      }
+    }
+  }
+  $response
 }
 Export-ModuleMember -function Set-LmBackupConfiguration, Set-BackupOption
 
@@ -19481,16 +19994,16 @@ Function Get-VSPacketFilterACL
 {
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
-		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
 		[string]$VirtualService,
 
-		[Parameter(Mandatory=$true)]
 		[ValidateRange(3, 65530)]
 		[Int32]$VSPort,
 
-		[Parameter(Mandatory=$true)]
 		[ValidateSet("tcp", "udp")]
 		[string]$VSProtocol,
+
+		[Int32]$VSIndex = -1,
 
 		[Parameter(Mandatory=$true)]
 		[ValidateSet("black", "white")]
@@ -19518,11 +20031,20 @@ Function Get-VSPacketFilterACL
 	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
 	$params = [ordered]@{
 		"listvs" = $Type
-		"vsip" = $VirtualService
-		"vsport" = $VSPort
-		"vsprot" = $VSProtocol
+	}
+
+	$cmdCase = checkAdcVSInputParams $VirtualService $VSPort $VSProtocol $VSIndex 1
+
+	if ($cmdCase -eq "IPAddress") {
+		$params.Add("vs", $VirtualService)
+		$params.Add("port", $VSPort)
+		$params.Add("prot", $VSProtocol)
+	}
+	else {
+		$params.Add("vs", $VSIndex)
 	}
 
 	try {
@@ -19541,16 +20063,16 @@ Function New-VSPacketFilterACL
 {
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
-		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
 		[string]$VirtualService,
 
-		[Parameter(Mandatory=$true)]
 		[ValidateRange(3, 65530)]
 		[Int32]$VSPort,
 
-		[Parameter(Mandatory=$true)]
 		[ValidateSet("tcp", "udp")]
 		[string]$VSProtocol,
+
+		[Int32]$VSIndex = -1,
 
 		[Parameter(Mandatory=$true)]
 		[ValidateSet("black", "white")]
@@ -19584,13 +20106,23 @@ Function New-VSPacketFilterACL
 	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
 	$params = [ordered]@{
 		"addvs" = $Type
-		"vsip" = $VirtualService
-		"vsport" = $VSPort
-		"vsprot" = $VSProtocol
 		"addr" = $AclAddress
 	}
+
+	$cmdCase = checkAdcVSInputParams $VirtualService $VSPort $VSProtocol $VSIndex 1
+
+	if ($cmdCase -eq "IPAddress") {
+		$params.Add("vs", $VirtualService)
+		$params.Add("port", $VSPort)
+		$params.Add("prot", $VSProtocol)
+	}
+	else {
+		$params.Add("vs", $VSIndex)
+	}
+
 	if ($AclComment) {
 		$params.Add("comment", [System.Uri]::EscapeDataString($AclComment))
 	}
@@ -19611,16 +20143,16 @@ Function Remove-VSPacketFilterACL
 {
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
-		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
 		[string]$VirtualService,
 
-		[Parameter(Mandatory=$true)]
 		[ValidateRange(3, 65530)]
 		[Int32]$VSPort,
 
-		[Parameter(Mandatory=$true)]
 		[ValidateSet("tcp", "udp")]
 		[string]$VSProtocol,
+
+		[Int32]$VSIndex = -1,
 
 		[Parameter(Mandatory=$true)]
 		[ValidateSet("black", "white")]
@@ -19652,12 +20184,21 @@ Function Remove-VSPacketFilterACL
 	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
 	$params = [ordered]@{
 		"delvs" = $Type
-		"vsip" = $VirtualService
-		"vsport" = $VSPort
-		"vsprot" = $VSProtocol
 		"addr" = $AclAddress
+	}
+
+	$cmdCase = checkAdcVSInputParams $VirtualService $VSPort $VSProtocol $VSIndex 1
+
+	if ($cmdCase -eq "IPAddress") {
+		$params.Add("vs", $VirtualService)
+		$params.Add("port", $VSPort)
+		$params.Add("prot", $VSProtocol)
+	}
+	else {
+		$params.Add("vs", $VSIndex)
 	}
 
 	try {
@@ -21830,8 +22371,8 @@ Export-ModuleMember -function Remove-ClusterNode, NMDeleteNode
 # SIG # Begin signature block
 # MIIcBQYJKoZIhvcNAQcCoIIb9jCCG/ICAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCGz9P/sKrLZx7W
-# t6WPjUd2Nx3IJQc8MRXxsoiTyaPWfaCCCtswggVWMIIEPqADAgECAhAZGjLLdZyX
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCB4mTQf4R641PvF
+# 8aQaJJDFidsYfybIz49TE4pv4fRa7aCCCtswggVWMIIEPqADAgECAhAZGjLLdZyX
 # uM+sEY3VEn9JMA0GCSqGSIb3DQEBCwUAMIHKMQswCQYDVQQGEwJVUzEXMBUGA1UE
 # ChMOVmVyaVNpZ24sIEluYy4xHzAdBgNVBAsTFlZlcmlTaWduIFRydXN0IE5ldHdv
 # cmsxOjA4BgNVBAsTMShjKSAyMDA2IFZlcmlTaWduLCBJbmMuIC0gRm9yIGF1dGhv
@@ -21895,17 +22436,17 @@ Export-ModuleMember -function Remove-ClusterNode, NMDeleteNode
 # eHRlbmRlZCBWYWxpZGF0aW9uIENvZGUgU2lnbmluZyBDQSAtIEcyAhAJ44Y2LP+n
 # TrgFMpsb/sD3MA0GCWCGSAFlAwQCAQUAoHwwEAYKKwYBBAGCNwIBDDECMAAwGQYJ
 # KoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGCNwIBCzEOMAwGCisGAQQB
-# gjcCARUwLwYJKoZIhvcNAQkEMSIEII3XJg2a3cbjyK2bHuvAvMp/PAekwOgIWL9a
-# tgP7ZmAvMA0GCSqGSIb3DQEBAQUABIIBAEkYVUAcrTHR56Ykf54mx18ZUDS+wiPc
-# WpJG4u7hBZRml62lzVtF2aA4HcwCDoTm5U+EV8INXlrpz68fLnGBavAsFwWRiaNr
-# dAAdV6A6l+hpn37M5X6E54gy+irFES4NBb4/Los863ykYnORR+QwXZUSC/JR+RXn
-# qAZsQ8cK+CBDQNh+f/q60ruatDiwJgWm6NFRAllR2qg0B7arM+y55cFrJp3v8LMH
-# 0RK7rEN5hNDD16T7BQIctYzTJFNKvxNsKHILUnVcru5Ot2pg+kU/StJ6XyFpDQTz
-# iGSiB6HDgjrl3bj9Q1/qOvA9icnthC0bfDHmC7Ap2bwmqYjL4bdRl1Shgg4sMIIO
+# gjcCARUwLwYJKoZIhvcNAQkEMSIEINrptvtCX42dv5xeAgAaoNGQ7sDuJw5yddnv
+# Oob4BHfGMA0GCSqGSIb3DQEBAQUABIIBAJx7QITcKJnnqF4bLjEFurTX6PclUrkz
+# DFFTwOlyRshqqisYcrxAwGbx9F5FUwmID7FTXSXogt4yfW1FX3/jMHmAjr+RJ1PV
+# /JocYWiBnkcVXojqTgxiw6ZAB8rif1hl3VxVxKbn3NutvEqUAEiQzHTJimUmpite
+# LQpdfQ8PY3tMSWVwuZhLyBgqXBRjcMcBRXLEPHM7gVBrtGV3hlwWna0Gojx/s1rV
+# aPmH2tMZY3EaHD2Xn/4VoBDUT0vG5C/l+j6JFQRnV3pPUZn+s/peqVa2w0A9a6nX
+# ZGjBY1JVoEJfl+b8nIwp2JfSpMPZl6TGDCOe7jWC5inpeXWGz77SZqOhgg4sMIIO
 # KAYKKwYBBAGCNwMDATGCDhgwgg4UBgkqhkiG9w0BBwKggg4FMIIOAQIBAzENMAsG
 # CWCGSAFlAwQCATCB/wYLKoZIhvcNAQkQAQSgge8EgewwgekCAQEGC2CGSAGG+EUB
-# BxcDMCEwCQYFKw4DAhoFAAQU2+Ybqnv5q3jZZcTVPxyYLKlZd3kCFQCKz/CH2JjO
-# 4UO7YeVsg9y5O2Tr9BgPMjAxODEwMDMxNTA5NThaMAMCAR6ggYakgYMwgYAxCzAJ
+# BxcDMCEwCQYFKw4DAhoFAAQUKtCfyrVNad08+/NUkqVc6cRicNsCFQC6mKt1Xyn+
+# XepzCT/smXOXD6v9fxgPMjAxOTAxMDkxNDMzMTBaMAMCAR6ggYakgYMwgYAxCzAJ
 # BgNVBAYTAlVTMR0wGwYDVQQKExRTeW1hbnRlYyBDb3Jwb3JhdGlvbjEfMB0GA1UE
 # CxMWU3ltYW50ZWMgVHJ1c3QgTmV0d29yazExMC8GA1UEAxMoU3ltYW50ZWMgU0hB
 # MjU2IFRpbWVTdGFtcGluZyBTaWduZXIgLSBHM6CCCoswggU4MIIEIKADAgECAhB7
@@ -21969,13 +22510,13 @@ Export-ModuleMember -function Remove-ClusterNode, NMDeleteNode
 # b3JhdGlvbjEfMB0GA1UECxMWU3ltYW50ZWMgVHJ1c3QgTmV0d29yazEoMCYGA1UE
 # AxMfU3ltYW50ZWMgU0hBMjU2IFRpbWVTdGFtcGluZyBDQQIQe9Tlr7rMBz+hASME
 # IkFNEjALBglghkgBZQMEAgGggaQwGgYJKoZIhvcNAQkDMQ0GCyqGSIb3DQEJEAEE
-# MBwGCSqGSIb3DQEJBTEPFw0xODEwMDMxNTA5NThaMC8GCSqGSIb3DQEJBDEiBCC4
-# nADqVI82qqmMx3GTimBavGGP7b0gjO9VJaf+muCFDzA3BgsqhkiG9w0BCRACLzEo
+# MBwGCSqGSIb3DQEJBTEPFw0xOTAxMDkxNDMzMTBaMC8GCSqGSIb3DQEJBDEiBCAO
+# j+wu5EZhat02AhXC+n3Ol6cjWJU3LV5TKkECv9qbsTA3BgsqhkiG9w0BCRACLzEo
 # MCYwJDAiBCDEdM52AH0COU4NpeTefBTGgPniggE8/vZT7123H99h+DALBgkqhkiG
-# 9w0BAQEEggEAjsMX2DIs7fliWRNzA6zj4iseCPoe0YLkO+HBAi+eqJNVits+06+a
-# VScpZZsuRuaKnpoWr4rsYUpXf3gKRAjbVUVEPwhWt+6jky9SkZI1r7I7NvKu9eQk
-# +sHoKKq/eU9CVcjJdmInBC6c4u40/R0w+cSaQbawsAtV7Y60eVPD7vF8yQa8HuLt
-# Q+mSst7/d1x/ulCgWsoZHNDwmd0SdefWgID0aC3t4tiO6lMTOmXCiNUrpssiSUs+
-# QoQc7jJEQPJX2b/6yqSv+adaP6jhIXOJd4FLgtQzlsJD7q4OvCScDT/QsNKupEaT
-# k2Ui0RjU8Gwp+Z1bAb1zNCy1501zduF0lg==
+# 9w0BAQEEggEASrllP+FkmHw3BLZa8AHpkrxK81thm/L4/tiQ1tbTZHFnfBAXyrs7
+# VYK/MNcnBnFr4JC7pmlfJfNiREfSq+FVpLPT5D0pyb4SeLjHYH+bzOkUjzDkkW5G
+# fZBhoJ7YqRW1cAnrmbEIVB/rkbWbSwPSYPq+sZwwE77OmJibxDrVUz5ErBcs4waD
+# RCxUJf9+rUh8nugpOUtPu9JqxgWoe6cL1FtuMsKklDOtHMSTvlndVuNp32QjgRgy
+# ySPRNdW8kGX4QYB7+lf/J73ZCI9yID+NWGiViEBFLGhDOS0vgIb8gEd0nVoS2LLb
+# NLalSyJM5umu09wYcDfeopzg721GuFxufA==
 # SIG # End signature block

@@ -1,3 +1,19 @@
+Thu Jan 10 09:10:54 EST 2019
+ - Updated cmdlets Get-LmBackupConfiguration and Set-LmBackupConfiguration to match
+   the new value for the parameter backupmethod
+ - added cmdlets Get-LmExtendedLogFile, Reset-LmExtendedLogFile and Export-LmExtendedLogFile
+   added cmdlets Get-LmSyslogFile, Reset-LmSyslogFile, Export-LmSyslogFile
+   added cmdlets Get-EspExtendedLogConfiguration, Set-EspExtendedLogConfiguration
+   for Esp Extended log files management
+ - New-AdcVirtualService, Set-AdcVirtualService, Set-AdcSubVirtualService cmdlets:
+   updated OutputAuthMode range values (from [0, 3] to [0, 4])
+ - added radius_send_nas_id and radius_nas_id parameters to the Set-SSODomain cmdlet
+ - Set-SecAdminWuiConfiguration cmdlet: updated WUITLSProtocols parameter allowed values range
+   (from [ValidateRange(0, 14)] to [ValidateRange(0, 30)])
+ - added missing parameter syslognone to the Set-LogSyslogConfiguration cmdlet
+ - added the new flag ldapephc to the Set-SSODomain cmdlet	 
+
+
 Thu Oct  4 16:03:27 EDT 2018
 PowerShell module updates
  - Request-LicenseOnPremise, Get-AslLicenseType: the parameters aslipaddr and aslname have been replaced by aslhost. 
