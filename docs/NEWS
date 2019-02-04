@@ -1,3 +1,7 @@
+Mon Feb  4 12:2-:05 EST 2019
+ - Fixed issue in the Read-LicenseEULA cmdlet
+ - Exposed DiskUsage statistics within the Get-LogStatistics cmdlet.
+
 Thu Jan 10 09:10:54 EST 2019
  - Updated cmdlets Get-LmBackupConfiguration and Set-LmBackupConfiguration to match
    the new value for the parameter backupmethod
