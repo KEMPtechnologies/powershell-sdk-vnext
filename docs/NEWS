@@ -1,3 +1,14 @@
+Tue Apr 23 13:13:18 EDT 2019
+ - Remove-SplaInstance - fixed handling of error case
+ - Set-GeoFQDNSiteMapping cmdlet - changed MappingPort type from string to integer to allow the usage of the wildcard *
+ - GEO Powershell blacklist API - removed not used filename parameter from url
+ - GEO Powershell API - added parameter MappingName to the Set-GeoFQDNSiteMapping cmdlet
+ - GEO Powershell API - added Set-GeoFQDNSiteMapping cmdlet
+ - Added Remove-SplaInstance cmdlet
+ - Added the Timeout parameter to New-LdapEndpoint and Set-LdapEndpoint cmdlets
+ - Added GEO statistics cmdlet (Get-GeoStatistics)
+ - Removed HSM cmdlets from the PS module
+
 Mon Feb  4 12:2-:05 EST 2019
  - Fixed issue in the Read-LicenseEULA cmdlet
  - Exposed DiskUsage statistics within the Get-LogStatistics cmdlet.
