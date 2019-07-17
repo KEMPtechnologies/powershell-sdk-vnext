@@ -1,5 +1,5 @@
 #
-# $Id: Kemp.LoadBalancer.Powershell.psm1 17360 2019-03-29 12:51:16Z fcarpin $
+# $Id: Kemp.LoadBalancer.Powershell.psm1 17497 2019-05-30 12:33:56Z fcarpin $
 #
 
 $ScriptDir = Split-Path -parent $MyInvocation.MyCommand.Path
@@ -5516,6 +5516,115 @@ Function Export-LmExtendedLogFile
 	}
 }
 Export-ModuleMember -function Export-LmExtendedLogFile
+
+Function Export-LmWafTempRemoteLog
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[string]$Path,
+
+		[string]$OutputFileName,
+
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters -SkipEncoding
+
+	if (-not ($Path)) {
+		$Path = "$($Env:SystemRoot)\Temp\"
+	}
+
+	if (-not ($OutputFileName)) {
+		$OutputFileName = "LM-WafTempRemoteFile_$(Get-Date -format yyyy-MM-dd_HH-mm-ss).tar.gz"
+	}
+
+	if ($OutputFileName.Contains(".tar.gz") -eq $false) {
+			$OutputFileName = $OutputFileName + ".tar.gz"
+	}
+
+	$Path = validatePath $Path $OutputFileName
+
+	try {
+		$cmd = "logging/savemlogcdata"
+		if (-not ([String]::IsNullOrEmpty($FileToExport))) {
+			$params.Remove("FileToExport")
+		}
+		if (-not ([String]::IsNullOrEmpty($Path))) {
+			$params.Remove("Path")
+		}
+		if (-not ([String]::IsNullOrEmpty($OutputFileName))) {
+			$params.Remove("OutputFileName")
+		}
+		$response = SendCmdToLm -Command "$cmd" -ParameterValuePair $params -File $Path -Output -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+		return
+	}
+}
+Export-ModuleMember -function Export-LmWafTempRemoteLog
+
+Function Reset-LmWafTempRemoteLog
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters -SkipEncoding
+
+	try {
+		$cmd = "logging/clearmlogcdata"
+		$response = SendCmdToLm -Command "$cmd" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+		return
+	}
+}
+Export-ModuleMember -function Reset-LmWafTempRemoteLog
 
 # ==================================================
 # endregion LOGGING
@@ -22521,8 +22630,8 @@ Export-ModuleMember -function Import-TlsHSMCACert, HSMUploadCACert
 # SIG # Begin signature block
 # MIIcBQYJKoZIhvcNAQcCoIIb9jCCG/ICAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCArvucI13uEO62Z
-# WUhHtt8HTX5XWlOsGJVSdinBiuc/CqCCCtwwggVWMIIEPqADAgECAhAZGjLLdZyX
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCD6MXVoB4vpqlrX
+# 5LLwrmp3ZtaIdEkBY2RP9pN0uER1GaCCCtwwggVWMIIEPqADAgECAhAZGjLLdZyX
 # uM+sEY3VEn9JMA0GCSqGSIb3DQEBCwUAMIHKMQswCQYDVQQGEwJVUzEXMBUGA1UE
 # ChMOVmVyaVNpZ24sIEluYy4xHzAdBgNVBAsTFlZlcmlTaWduIFRydXN0IE5ldHdv
 # cmsxOjA4BgNVBAsTMShjKSAyMDA2IFZlcmlTaWduLCBJbmMuIC0gRm9yIGF1dGhv
@@ -22586,17 +22695,17 @@ Export-ModuleMember -function Import-TlsHSMCACert, HSMUploadCACert
 # RXh0ZW5kZWQgVmFsaWRhdGlvbiBDb2RlIFNpZ25pbmcgQ0EgLSBHMgIQSsux3KnV
 # 7Ms1x2U+yA5c5zANBglghkgBZQMEAgEFAKB8MBAGCisGAQQBgjcCAQwxAjAAMBkG
 # CSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEE
-# AYI3AgEVMC8GCSqGSIb3DQEJBDEiBCBJLx/nnq4amXvtjms1o1fG1Mgw96SVe1j2
-# xuOaRnxcrzANBgkqhkiG9w0BAQEFAASCAQBFbdIy1TCeFl0urCOmaD9HzXBXtpic
-# UC9oqdtw9EK/0NOhI2NSgVkirBzJ5AEvyCnXqXD2u7WPu0QU0GHigtdd9gp/kUy4
-# PCGGTVi9prhMnqR4+HmqkF0oMK86ls3ytMRh3tR/E+EBAo/E2FYsf/jypO+SY9Fb
-# ZA+F6NnXwcLt2aMPH6ye5YKtSKAzyRSooGThpmiWEs6idXRT7ksPTbK3/xUWMML/
-# uABGKfpeL2NEZ1fPdMwkHNCA8LJeDFOzR+ypcnjflSk05fxO3mESIJznIEkC1QWg
-# 5RG1nGiqKuDUdLqo0n8xFNXHFpfEfcLeGu8ZHZVi5R2UsmqJ8gqu/lP3oYIOKzCC
+# AYI3AgEVMC8GCSqGSIb3DQEJBDEiBCA3ajbdb/AyXCZldODLSqc2FC1KOtBtRAQM
+# z3e/dgTPEzANBgkqhkiG9w0BAQEFAASCAQAZx967kNN8ghv1X+2TfUyTLkqzUR5k
+# 2V/YkfGYEmYmsBPSQDvsEc9HaNzH1FISYRungAvSRF+Kwsem5tt1Ijr1d0Oh2W1v
+# X0I4RoibRXE4r7ZFIzHPzOpES25OOhaIAk5txF25MXU6LA7vrVjjyluL/mkoQZUE
+# gFEzuSBRVpjV1Tf/X5ltquHL4zYpDinwrsPTasPGCcz+PJj/siavQSIVSWeONXL8
+# /TNTEaWzgStW8hFK8Rhwk6nYOY0YcdgmPyJ3eoXmpyZ6V7kmXDDyUB+JNFLh+xF7
+# 9jLdS+KaM1X9r+jNMZ8h2eMv28hbiqqKa7g/wCgxfWXYBfv9nf294I9CoYIOKzCC
 # DicGCisGAQQBgjcDAwExgg4XMIIOEwYJKoZIhvcNAQcCoIIOBDCCDgACAQMxDTAL
 # BglghkgBZQMEAgEwgf4GCyqGSIb3DQEJEAEEoIHuBIHrMIHoAgEBBgtghkgBhvhF
-# AQcXAzAhMAkGBSsOAwIaBQAEFNx00pAmTZkPpc269Y/JIt+VJaHPAhRRg5D1qQ6Z
-# /6Ok+I5qW9QYDP+WyhgPMjAxOTA0MjMxNDIyMjZaMAMCAR6ggYakgYMwgYAxCzAJ
+# AQcXAzAhMAkGBSsOAwIaBQAEFJMSNbqu3eGVnHk0uYtWBc2dBaSyAhQBQhPQDpPx
+# T0Vxh+2eEzwydFhqdBgPMjAxOTA3MTYxNDQ3MTZaMAMCAR6ggYakgYMwgYAxCzAJ
 # BgNVBAYTAlVTMR0wGwYDVQQKExRTeW1hbnRlYyBDb3Jwb3JhdGlvbjEfMB0GA1UE
 # CxMWU3ltYW50ZWMgVHJ1c3QgTmV0d29yazExMC8GA1UEAxMoU3ltYW50ZWMgU0hB
 # MjU2IFRpbWVTdGFtcGluZyBTaWduZXIgLSBHM6CCCoswggU4MIIEIKADAgECAhB7
@@ -22660,13 +22769,13 @@ Export-ModuleMember -function Import-TlsHSMCACert, HSMUploadCACert
 # b3JhdGlvbjEfMB0GA1UECxMWU3ltYW50ZWMgVHJ1c3QgTmV0d29yazEoMCYGA1UE
 # AxMfU3ltYW50ZWMgU0hBMjU2IFRpbWVTdGFtcGluZyBDQQIQe9Tlr7rMBz+hASME
 # IkFNEjALBglghkgBZQMEAgGggaQwGgYJKoZIhvcNAQkDMQ0GCyqGSIb3DQEJEAEE
-# MBwGCSqGSIb3DQEJBTEPFw0xOTA0MjMxNDIyMjZaMC8GCSqGSIb3DQEJBDEiBCCu
-# DNg4BKcwiQzRfNIBKttFO0lrh6N3kqd1H/x1J6XCGzA3BgsqhkiG9w0BCRACLzEo
+# MBwGCSqGSIb3DQEJBTEPFw0xOTA3MTYxNDQ3MTZaMC8GCSqGSIb3DQEJBDEiBCBu
+# siLpadXBNMeEY66uk02w8T0hEEgZVme2fAcyhfgelzA3BgsqhkiG9w0BCRACLzEo
 # MCYwJDAiBCDEdM52AH0COU4NpeTefBTGgPniggE8/vZT7123H99h+DALBgkqhkiG
-# 9w0BAQEEggEAmOMNWpbv6VBZyjMyUMleyWobj0e4UGuV2uFnqdQ2lDWwI+y5hR/8
-# 47JdS/TM9GkGs1QNStZJVAA4dOn0iwFAQdWal0H2LzR4PdOATs1MFYrP0t5L3S3e
-# llPezfXYqijXJI/SMd/vfTEsu51M/2GoDCiCClAkMpyRsuz2BxFm138l5YTHXQ1a
-# csm90Civ1ugCl2GD5hyOKLqcuRix6xtir9OmVxr9nKc8qptSS2BAeLkx/KcpZ248
-# sXBB89XP0PDi5MNSiWM8VGoTwL47exoFVSDMWE93Z5GtYd7Im6v8DOo59b89ZlXz
-# nAJuQStRhPuVUoDefFsZCGACu0sauCpGYA==
+# 9w0BAQEEggEAkA650pWo5vXdcQMqnd8TvNkFHUYCRWIOuEQflKS+tw0cqgA6pHCU
+# EOvQud9xXJuH+SVvV7loKXhEPvZiu4koxR8rY3ur71tvWs3yCsja2nnmSCgpHB2o
+# C3vFxZkY7SCQyxd6N1e2psPfZ0fgLA9/CNAn3NFS37wWkXhugbfER17ZHyKSwsK7
+# OQIrQJ6C+mKlbMayNUkzjJGjwrt4ViW8XVGQc55/J4CFoqpq06U9eQ03ubl1/Fhb
+# WPGzHEdCzyFgYuncLNBLVvQoUgOYDPWscPdJsKWNeR8WCWq7I7ZYNvekyiwXMo/a
+# P8Tjzzfog63+fdtKd5A16xPCmO7hjZD+Nw==
 # SIG # End signature block
