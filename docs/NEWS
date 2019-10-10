@@ -1,3 +1,8 @@
+Thu Oct 10 16:33:43 EDT 2019
+ - Added new cmdlet Get-SSODomainQuerySession.
+ - Added UserPwdExpiryWarn (boolean) and UserPwdExpiryWarnDays (integer) parameters
+   to New/Set-AdcVirtualService and Set-AdcSubVirtualService cmdlets.
+
 Wed Jul 17 10:21:55 EDT 2019
  - Added Export-LmWafTempRemoteLog and Reset-LmWafTempRemoteLog cmdlets
  - Fixed Reset-LmWafTempRemoteLog cmdlet
