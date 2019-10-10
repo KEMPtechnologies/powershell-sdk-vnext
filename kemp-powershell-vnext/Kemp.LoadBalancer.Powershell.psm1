@@ -1,5 +1,5 @@
 #
-# $Id: Kemp.LoadBalancer.Powershell.psm1 17497 2019-05-30 12:33:56Z fcarpin $
+# $Id: Kemp.LoadBalancer.Powershell.psm1 17869 2019-10-07 18:55:58Z fcarpin $
 #
 
 $ScriptDir = Split-Path -parent $MyInvocation.MyCommand.Path
@@ -1304,6 +1304,41 @@ Function SetGetSSODomainSessionReturnObject($xmlAnsw)
 	$ssoSession = [ordered]@{}
 	$ssoSession.PSTypeName = "SSOSession"
 	$ssoSession.Add("SSOSession", $sObj) | Out-null
+
+	New-Object -TypeName PSObject -Property $ssoSession
+}
+
+# Internal use only
+Function SetGetSSODomainQuerySessionReturnObject($xmlAnsw)
+{
+	$Sessions = [ordered]@{}
+	$Sessions.PSTypeName = "SSOQuerySession"
+
+	$nos = $xmlAnsw.Response.Success.Data.NumberOfSessions
+	$Sessions.Add("NumberOfSessions", $nos) | Out-null
+
+	if ($nos -eq 0) {
+		$Sessions.Add("Session", "no sessions")
+	}
+	elseif ($nos -eq 1) {
+		$data = $xmlAnsw.Response.Success.Data.Session
+		$sHt = GetPSObjectFromXml "Session" $data
+
+		$Sessions.Add("Session", $sHt)
+	}
+	else {
+		$data = $xmlAnsw.Response.Success.Data.Session
+		$sHt_temp = GetPSObjectFromXml "Session" $data
+		$sHt = $sHt_temp.Session
+
+		$Sessions.Add("Session", $sHt)
+	}
+
+	$sObj = New-Object -TypeName PSObject -Prop $Sessions
+
+	$ssoSession = [ordered]@{}
+	$ssoSession.PSTypeName = "SSOQuerySession"
+	$ssoSession.Add("SSOQuerySession", $sObj) | Out-null
 
 	New-Object -TypeName PSObject -Property $ssoSession
 }
@@ -2722,6 +2757,7 @@ $successHandlerList = [ordered]@{
 	GetSSODomainLockedUser = (gi function:SetSSODomainLockUnLockAnswerReturnObject)
 	SetSSODomainLockedUser = (gi function:SetSSODomainLockUnLockAnswerReturnObject)
 	GetSSODomainSession = (gi function:SetGetSSODomainSessionReturnObject)
+	GetSSODomainQuerySession = (gi function:SetGetSSODomainQuerySessionReturnObject)
 
 	GetLdapEndpoint = (gi function:SetGetLdapEndpointReturnObject)
 
@@ -2864,7 +2900,7 @@ Function HandleErrorAnswer($Command2ExecClass, $xmlAnsw)
 	#
 	switch ($Command2ExecClass)
 	{
-		{ ($_ -in "GeneralCase", "NewAdcVS", "GetAdcVS_Single", "GetAdcVS_List", "SetAdcVS", "NewAdcRS", "VirtualServiceRule", "RealServerRule", "EnableDisableRS", "GetSetAdcRS", "RemoveAdcRS", "AddAdcContentRule", "RemoveAdcContentRule", "SetAdcContentRule", "GetAdcContentRule", "GetAdcServiceHealth","AdcHttpExceptions", "AdcAdaptiveHealthCheck", "AdcWafVSRules", "AddRemoveAdcWafRule", "GetLicenseAccessKey", "GetLicenseType", "GetLicenseInfo", "RequestLicenseOnline", "RequestLicenseOffline", "UpdateLicenseOnline", "UpdateLicenseOffline", "RequestLicenseOnPremise", "GetAllSecUser", "GetSingleSecUser", "GetRemoteGroup", "GetAllRemoteGroups", "GetNetworkInterface", "GetAllParameters", "GetLmNetworkInterface", "GetTlsCertificate", "GetTlsCipherSet", "GetSSODomain", "GetSSOSamlDomain", "GetSSODomainLockedUser", "SetSSODomainLockedUser", "GetSSODomainSession", "InstallTemplate", "ExportVSTemplate", "GetTemplate", "GetLogStatistics", "GetWafRules", "GetWafRulesAutoUpdateConfiguration", "GetWafAuditFiles", "GetGeoFQDN", "GetGeoStats", "AddGeoCluster", "SetGeoCluster", "AddNetworkVxLAN", "AddNetworkVLAN", "GetNetworkRoute", "TestNetworkRoute", "GetHosts", "GetVSTotals", "GetLdapEndpoint", "GetVpnConnection", "InstallLmAddon", "GetLmAddOn", "InstallLmPatch", "UninstallLmPatch", "GetLmPreviousFirmwareVersion", "AddSdnController", "SetSdnController", "GetSdnController", "RemoveSdnController", "GetAdcRealServer", "SetGeoFQDNSiteAddress", "GetGeoCustomLocation", "GetGeoIpRange", "TestLmGeoEnabled", "GetGeoPartnerStatus", "GetGeoIPBlacklistDatabaseConfiguration", "GetGeoIPWhitelist", "ExportGeoIPWhitelistDatabase", "GetGeoDNSSECConfiguration", "GetGeoLmMiscParameter", "GetVSPacketFilterACL", "GetPacketFilterOption", "GetGlobalPacketFilterACL", "GetLmIPConnectionLimit", "GetAzureHAConfiguration", "GetAwsHaConfiguration", "GetLmCloudHaConfiguration", "GetLmDebugInformation", "GetAslLicenseType", "GetLmVpnIkeDaemonStatus", "NewLmVpnConnection", "GetClusterStatus", "NewCluster", "GetRaidController", "GetRaidControllerDisk", "GetExtEspLogConfiguration", "GetLmLogFilesList", "GetLmLogResetFilesList", "GetLmExtendedLogFilesList", "GetLmExtendedLogResetFilesList") } {
+		{ ($_ -in "GeneralCase", "NewAdcVS", "GetAdcVS_Single", "GetAdcVS_List", "SetAdcVS", "NewAdcRS", "VirtualServiceRule", "RealServerRule", "EnableDisableRS", "GetSetAdcRS", "RemoveAdcRS", "AddAdcContentRule", "RemoveAdcContentRule", "SetAdcContentRule", "GetAdcContentRule", "GetAdcServiceHealth","AdcHttpExceptions", "AdcAdaptiveHealthCheck", "AdcWafVSRules", "AddRemoveAdcWafRule", "GetLicenseAccessKey", "GetLicenseType", "GetLicenseInfo", "RequestLicenseOnline", "RequestLicenseOffline", "UpdateLicenseOnline", "UpdateLicenseOffline", "RequestLicenseOnPremise", "GetAllSecUser", "GetSingleSecUser", "GetRemoteGroup", "GetAllRemoteGroups", "GetNetworkInterface", "GetAllParameters", "GetLmNetworkInterface", "GetTlsCertificate", "GetTlsCipherSet", "GetSSODomain", "GetSSOSamlDomain", "GetSSODomainLockedUser", "SetSSODomainLockedUser", "GetSSODomainSession", "GetSSODomainQuerySession", "InstallTemplate", "ExportVSTemplate", "GetTemplate", "GetLogStatistics", "GetWafRules", "GetWafRulesAutoUpdateConfiguration", "GetWafAuditFiles", "GetGeoFQDN", "GetGeoStats", "AddGeoCluster", "SetGeoCluster", "AddNetworkVxLAN", "AddNetworkVLAN", "GetNetworkRoute", "TestNetworkRoute", "GetHosts", "GetVSTotals", "GetLdapEndpoint", "GetVpnConnection", "InstallLmAddon", "GetLmAddOn", "InstallLmPatch", "UninstallLmPatch", "GetLmPreviousFirmwareVersion", "AddSdnController", "SetSdnController", "GetSdnController", "RemoveSdnController", "GetAdcRealServer", "SetGeoFQDNSiteAddress", "GetGeoCustomLocation", "GetGeoIpRange", "TestLmGeoEnabled", "GetGeoPartnerStatus", "GetGeoIPBlacklistDatabaseConfiguration", "GetGeoIPWhitelist", "ExportGeoIPWhitelistDatabase", "GetGeoDNSSECConfiguration", "GetGeoLmMiscParameter", "GetVSPacketFilterACL", "GetPacketFilterOption", "GetGlobalPacketFilterACL", "GetLmIPConnectionLimit", "GetAzureHAConfiguration", "GetAwsHaConfiguration", "GetLmCloudHaConfiguration", "GetLmDebugInformation", "GetAslLicenseType", "GetLmVpnIkeDaemonStatus", "NewLmVpnConnection", "GetClusterStatus", "NewCluster", "GetRaidController", "GetRaidControllerDisk", "GetExtEspLogConfiguration", "GetLmLogFilesList", "GetLmLogResetFilesList", "GetLmExtendedLogFilesList", "GetLmExtendedLogResetFilesList") } {
 			$errMsg = $xmlAnsw.Response.Error
 		}
 
@@ -6311,6 +6347,64 @@ Function Clear-SSOCache
 }
 Export-ModuleMember -function Clear-SSOCache, FlushSsoCache
 
+Function Get-SSODomainQuerySession
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[Alias("Name")]
+		[string]$Domain,
+
+		[int]$startsession = -1,
+
+		[int]$stopsession = -1,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$params = [ordered]@{}
+	$params.Add("domain", $Domain)
+
+	if ($startsession -gt 0) {
+		$params.Add("startsession", $startsession)
+	}
+
+	if ($stopsession -gt 0) {
+		$params.Add("stopsession", $stopsession)
+	}
+
+	try {
+		$response = SendCmdToLm -Command "ssodomain/querysessions" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetSSODomainQuerySession" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+		return
+	}
+}
+Export-ModuleMember -function Get-SSODomainQuerySession
+
 # ==================================================
 # endregion SSO
 # ==================================================
@@ -8108,6 +8202,11 @@ Function New-AdcVirtualService
 
 		[string]$CertFile,
 
+		[bool]$UserPwdExpiryWarn,
+
+		[ValidateRange(1, 30)]
+		[Int16]$UserPwdExpiryWarnDays,
+
 		[ValidateSet("tcp", "icmp", "https", "http", "smtp", "nntp", "ftp", "telnet", "pop3", "imap", "rdp", "ldap", "none")]
 		[string]$CheckType = "tcp",
 
@@ -8429,6 +8528,11 @@ Function Set-AdcVirtualService
 		[bool]$Cache,
 
 		[string]$CertFile,
+
+		[bool]$UserPwdExpiryWarn,
+
+		[ValidateRange(1, 30)]
+		[Int16]$UserPwdExpiryWarnDays,
 
 		[ValidateSet("tcp", "icmp", "https", "http", "smtp", "nntp", "ftp", "telnet", "pop3", "imap", "rdp", "ldap", "none")]
 		[string]$CheckType,
@@ -8991,6 +9095,11 @@ Function Set-AdcSubVirtualService
 		[Int32]$SubVSIndex,
 
 		[Int16]$AddVia,
+
+		[bool]$UserPwdExpiryWarn,
+
+		[ValidateRange(1, 30)]
+		[Int16]$UserPwdExpiryWarnDays,
 
 		[ValidateSet("tcp", "icmp", "https", "http", "smtp", "nntp", "ftp", "telnet", "pop3", "imap", "rdp", "ldap", "none")]
 		[string]$CheckType,
@@ -22630,8 +22739,8 @@ Export-ModuleMember -function Import-TlsHSMCACert, HSMUploadCACert
 # SIG # Begin signature block
 # MIIcBQYJKoZIhvcNAQcCoIIb9jCCG/ICAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCD6MXVoB4vpqlrX
-# 5LLwrmp3ZtaIdEkBY2RP9pN0uER1GaCCCtwwggVWMIIEPqADAgECAhAZGjLLdZyX
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCBF3wnkB39aL+l+
+# OxWyERPsegcW0c7za6irXDmom8IEVaCCCtwwggVWMIIEPqADAgECAhAZGjLLdZyX
 # uM+sEY3VEn9JMA0GCSqGSIb3DQEBCwUAMIHKMQswCQYDVQQGEwJVUzEXMBUGA1UE
 # ChMOVmVyaVNpZ24sIEluYy4xHzAdBgNVBAsTFlZlcmlTaWduIFRydXN0IE5ldHdv
 # cmsxOjA4BgNVBAsTMShjKSAyMDA2IFZlcmlTaWduLCBJbmMuIC0gRm9yIGF1dGhv
@@ -22695,17 +22804,17 @@ Export-ModuleMember -function Import-TlsHSMCACert, HSMUploadCACert
 # RXh0ZW5kZWQgVmFsaWRhdGlvbiBDb2RlIFNpZ25pbmcgQ0EgLSBHMgIQSsux3KnV
 # 7Ms1x2U+yA5c5zANBglghkgBZQMEAgEFAKB8MBAGCisGAQQBgjcCAQwxAjAAMBkG
 # CSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEE
-# AYI3AgEVMC8GCSqGSIb3DQEJBDEiBCA3ajbdb/AyXCZldODLSqc2FC1KOtBtRAQM
-# z3e/dgTPEzANBgkqhkiG9w0BAQEFAASCAQAZx967kNN8ghv1X+2TfUyTLkqzUR5k
-# 2V/YkfGYEmYmsBPSQDvsEc9HaNzH1FISYRungAvSRF+Kwsem5tt1Ijr1d0Oh2W1v
-# X0I4RoibRXE4r7ZFIzHPzOpES25OOhaIAk5txF25MXU6LA7vrVjjyluL/mkoQZUE
-# gFEzuSBRVpjV1Tf/X5ltquHL4zYpDinwrsPTasPGCcz+PJj/siavQSIVSWeONXL8
-# /TNTEaWzgStW8hFK8Rhwk6nYOY0YcdgmPyJ3eoXmpyZ6V7kmXDDyUB+JNFLh+xF7
-# 9jLdS+KaM1X9r+jNMZ8h2eMv28hbiqqKa7g/wCgxfWXYBfv9nf294I9CoYIOKzCC
+# AYI3AgEVMC8GCSqGSIb3DQEJBDEiBCDhFoPlUAPx84qXsiJL8CYWL+wM+yO9aAQg
+# MN0dLsq3pjANBgkqhkiG9w0BAQEFAASCAQCIEkGbP7oYHmH8KkM+HDyYqVQh/g0+
+# o0b5WqrfmaQh6cjCzSbPx81eozhgm6YKXWcYZwx5aXO6SLQ1dy6d6BtKuhU/mu9b
+# VfPEvP1Zij6H5wd37ScLA5y3oOixtl1VTqxgKCg85KqG/L2sTR6PQsUAISgAzGv3
+# aQ4ZI99XkunqKqnosLhLZRmS5VzGn2XMEig7yJvpFlNFPGgGz7h3+o1pbseUGHXx
+# T2o4ahGQtRWWOuBQG08XOeLMKj1yJON6p24dXLz7vAt9ZwSDO0JLeKhE8hFtHTFi
+# jh5HWu5OuWwd45fp7ixPAkbydSe+sjOAjOADS+H5NH4ZOxiD4xZZSh9loYIOKzCC
 # DicGCisGAQQBgjcDAwExgg4XMIIOEwYJKoZIhvcNAQcCoIIOBDCCDgACAQMxDTAL
 # BglghkgBZQMEAgEwgf4GCyqGSIb3DQEJEAEEoIHuBIHrMIHoAgEBBgtghkgBhvhF
-# AQcXAzAhMAkGBSsOAwIaBQAEFJMSNbqu3eGVnHk0uYtWBc2dBaSyAhQBQhPQDpPx
-# T0Vxh+2eEzwydFhqdBgPMjAxOTA3MTYxNDQ3MTZaMAMCAR6ggYakgYMwgYAxCzAJ
+# AQcXAzAhMAkGBSsOAwIaBQAEFKsy7IxUZWOgL8tDAqa0Xe9VcRcfAhRHPDL0s3Ix
+# A6meTz9aQS5dyUhmohgPMjAxOTEwMTAxNDI3MTJaMAMCAR6ggYakgYMwgYAxCzAJ
 # BgNVBAYTAlVTMR0wGwYDVQQKExRTeW1hbnRlYyBDb3Jwb3JhdGlvbjEfMB0GA1UE
 # CxMWU3ltYW50ZWMgVHJ1c3QgTmV0d29yazExMC8GA1UEAxMoU3ltYW50ZWMgU0hB
 # MjU2IFRpbWVTdGFtcGluZyBTaWduZXIgLSBHM6CCCoswggU4MIIEIKADAgECAhB7
@@ -22769,13 +22878,13 @@ Export-ModuleMember -function Import-TlsHSMCACert, HSMUploadCACert
 # b3JhdGlvbjEfMB0GA1UECxMWU3ltYW50ZWMgVHJ1c3QgTmV0d29yazEoMCYGA1UE
 # AxMfU3ltYW50ZWMgU0hBMjU2IFRpbWVTdGFtcGluZyBDQQIQe9Tlr7rMBz+hASME
 # IkFNEjALBglghkgBZQMEAgGggaQwGgYJKoZIhvcNAQkDMQ0GCyqGSIb3DQEJEAEE
-# MBwGCSqGSIb3DQEJBTEPFw0xOTA3MTYxNDQ3MTZaMC8GCSqGSIb3DQEJBDEiBCBu
-# siLpadXBNMeEY66uk02w8T0hEEgZVme2fAcyhfgelzA3BgsqhkiG9w0BCRACLzEo
+# MBwGCSqGSIb3DQEJBTEPFw0xOTEwMTAxNDI3MTJaMC8GCSqGSIb3DQEJBDEiBCCI
+# 5IoVjkJGvJEOpJ62fmv9nUaDdbAWvjRYYIOHdkBXcTA3BgsqhkiG9w0BCRACLzEo
 # MCYwJDAiBCDEdM52AH0COU4NpeTefBTGgPniggE8/vZT7123H99h+DALBgkqhkiG
-# 9w0BAQEEggEAkA650pWo5vXdcQMqnd8TvNkFHUYCRWIOuEQflKS+tw0cqgA6pHCU
-# EOvQud9xXJuH+SVvV7loKXhEPvZiu4koxR8rY3ur71tvWs3yCsja2nnmSCgpHB2o
-# C3vFxZkY7SCQyxd6N1e2psPfZ0fgLA9/CNAn3NFS37wWkXhugbfER17ZHyKSwsK7
-# OQIrQJ6C+mKlbMayNUkzjJGjwrt4ViW8XVGQc55/J4CFoqpq06U9eQ03ubl1/Fhb
-# WPGzHEdCzyFgYuncLNBLVvQoUgOYDPWscPdJsKWNeR8WCWq7I7ZYNvekyiwXMo/a
-# P8Tjzzfog63+fdtKd5A16xPCmO7hjZD+Nw==
+# 9w0BAQEEggEAVd0XhfPTPOF0jPELgggZSo7b2axccbekCplh3QTxCT+mfn8hFs6+
+# N4wihXJYw1YS2Z0BXlMaSFkI/97Yz6VRXm5HMGR+QOEwGFB0lULsIj0L3vSpOY3y
+# ABv4d1y7S5ZauZygltOP09hOgvUayFSQhPgxGcgZzg4CZewAdsAJGNp+3+24F2dI
+# XzfksaIZg62ivUVfgAukf1kdeGHMVAhq988p6XYv2gLD2O91kMzh0LbcIqCNju3F
+# iG+ZVnDm5XiFGcKQDfmyQecyzOKZjHUYxxG1DzlpXmCifX01bbMD0J+N8RQTCvpo
+# Tc9vN1OcVdO6SVervprI5LLdD/D7/945iA==
 # SIG # End signature block
