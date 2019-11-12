@@ -1,3 +1,6 @@
+Tue Nov 12 12:18:15 EST 2019
+ - Added OnlyOnNoFlag parameter to New-AdcContentRule, Set-AdcContentRule cmdlets
+
 Thu Oct 10 16:33:43 EDT 2019
  - Added new cmdlet Get-SSODomainQuerySession.
  - Added UserPwdExpiryWarn (boolean) and UserPwdExpiryWarnDays (integer) parameters
