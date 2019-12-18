@@ -1,3 +1,6 @@
+Wed Dec 18 12:17:42 EST 2019
+ - Added Captcha parameters to the Set-AdcVirtualService/Set-AdcSubVirtualService cmdlets	
+
 Tue Nov 12 12:18:15 EST 2019
  - Added OnlyOnNoFlag parameter to New-AdcContentRule, Set-AdcContentRule cmdlets
 
