@@ -1,3 +1,8 @@
+Fri Feb  7 11:39:38 EST 2020
+	- Added support for ACL on WUI access (only for LM running the incoming V7.2.50 firmware version)
+	- Added SingleSignOnMessage parameter to New-AdcVirtualService cmdlet
+	- Added SingleSignOnMessage parameter to Set-AdcVirtualService and Set-AdcSubVirtualService cmdlets
+
 Wed Dec 18 12:17:42 EST 2019
  - Added Captcha parameters to the Set-AdcVirtualService/Set-AdcSubVirtualService cmdlets	
 
