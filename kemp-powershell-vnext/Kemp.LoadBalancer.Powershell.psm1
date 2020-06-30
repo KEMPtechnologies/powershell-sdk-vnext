@@ -1,5 +1,5 @@
 #
-# $Id: Kemp.LoadBalancer.Powershell.psm1 18736 2020-04-15 14:29:41Z fcarpin $
+# $Id: Kemp.LoadBalancer.Powershell.psm1 18979 2020-06-24 09:36:40Z spower $
 #
 
 $ScriptDir = Split-Path -parent $MyInvocation.MyCommand.Path
@@ -46,7 +46,7 @@ $ParamReplacement = @{VSIndex = "vs"; VirtualService = "vs"; Protocol = "prot"; 
 	L7ClientTokenTimeoutSecs = "clienttokentimeout"; L7ConnectionDrainTimeoutSecs = "finalpersist";
 	AllowEmptyPosts = "allowemptyposts"; AllowEmptyHttpHeaders = "AllowEmptyHttpHeaders";
 	ForceCompleteRSMatch = "ForceFullRSMatch"; SlowStart = "slowstart"; ShareSubVSPersistance = "ShareSubVSPersist";
-	SSHPreAuthBanner = "SSHPreAuth"; MultiHomedWui = "multihomedwui"; AllowUpdateChecks = "tethering"; }
+	SSHPreAuthBanner = "SSHPreAuth"; MultiHomedWui = "multihomedwui"; AllowUpdateChecks = "tethering"; LocalBindAddresses = "localbindaddrs"}
 
 $SystemRuleType = @{MatchContentRule=0; AddHeaderRule=1; DeleteHeaderRule=2; ReplaceHeaderRule=3; ModifyUrlRule=4; ReplaceBodyRule=5}
 
@@ -2158,6 +2158,10 @@ Function SetGetGeoLmMiscParameterReturnObject($xmlAnsw)
 
 	if ( ([String]::IsNullOrEmpty($data.soa.SOAEmail)) ) {
 		$data.soa | Add-Member -NotePropertyName "SOAEmail" -NotePropertyValue ""
+	}
+
+	if ( ([String]::IsNullOrEmpty($data.soa.TXT)) ) {
+		$data.soa | Add-Member -NotePropertyName "TXT" -NotePropertyValue ""
 	}
 
 	$ht = [ordered]@{}
@@ -8411,7 +8415,9 @@ Function New-AdcVirtualService
 
 		[bool]$Cache = $false,
 
-		[string]$CertFile,
+		[string[]]$CertFile,
+
+		[string[]]$IntermediateCerts,
 
 		[bool]$UserPwdExpiryWarn,
 
@@ -8654,12 +8660,7 @@ Function New-AdcVirtualService
 	SetAdcVirtualserviceCheckUserParam $params $CheckUse1_1
 
 	try {
-		if (([String]::IsNullOrEmpty($CertFile))) {
-			$response = SendCmdToLm -Command "addvs" -ParameterValuePair $params -ConnParams $ConnParams
-		}
-		else {
-			$response = SendCmdToLm -Command "addvs" -ParameterValuePair $params -ConnParams $ConnParams -Post
-		}
+		$response = SendCmdToLm -Command "addvs" -ParameterValuePair $params -ConnParams $ConnParams
 		HandleLmAnswer -Command2ExecClass "NewAdcVS" -LMResponse $response -AdditionalData $true
 	}
 	catch {
@@ -8751,7 +8752,9 @@ Function Set-AdcVirtualService
 
 		[bool]$Cache,
 
-		[string]$CertFile,
+		[string[]]$CertFile,
+
+		[string[]]$IntermediateCerts,
 
 		[bool]$UserPwdExpiryWarn,
 
@@ -9064,12 +9067,7 @@ Function Set-AdcVirtualService
 	}
 
 	try {
-		if (([String]::IsNullOrEmpty($CertFile))) {
-			$response = SendCmdToLm -Command "modvs" -ParameterValuePair $params -ConnParams $ConnParams
-		}
-		else {
-			$response = SendCmdToLm -Command "modvs" -ParameterValuePair $params -ConnParams $ConnParams -Post
-		}
+		$response = SendCmdToLm -Command "modvs" -ParameterValuePair $params -ConnParams $ConnParams
 		HandleLmAnswer -Command2ExecClass "SetAdcVS" -LMResponse $response -AdditionalData $true
 	}
 	catch {
@@ -9699,6 +9697,9 @@ Function New-AdcRealServer
 		[ValidateRange(0, 100000)]
 		[Int64]$Limit = 0,
 
+		[ValidateRange(0, 100000)]
+		[Int64]$RateLimit = 0,
+
 		[bool]$Critical,
 
 		[bool]$AddToAllSubvs,
@@ -9851,6 +9852,9 @@ Function Set-AdcRealServer
 
 		[ValidateRange(0, 100000)]
 		[Int64]$Limit = 0,
+
+		[ValidateRange(0, 100000)]
+		[Int64]$RateLimit = 0,
 
 		[bool]$Critical,
 
@@ -17854,6 +17858,8 @@ Function Set-GeoMiscParameter
 		[String]$NameSrv,
 
 		[String]$SOAEmail,
+
+		[String]$TXT,
 
 		[ValidateRange(1, 86400)]
 		[int]$TTL,
