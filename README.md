@@ -54,7 +54,7 @@ Script 7.2.39.0 Kemp.LoadBalancer.PowerShell {Add-BondedInterface, A...
 Documentation
 =====
 An interface description can be found in [docs](docs).
-The listing of all supported commands can be found in [https://kemptechnologies.github.io/PowerShell-sdk-vnext/ps-help.html](https://kemptechnologies.github.io/PowerShell-sdk-vnext/ps-help.html) 
+The listing of all supported commands can be found in [https://kemptechnologies.github.io/PowerShell-sdk-vnext/ps-help.html](https://kemptechnologies.github.io/powershell-sdk-vnext/ps-help.html) 
 
 
 Examples
