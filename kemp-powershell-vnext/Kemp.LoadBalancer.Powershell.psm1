@@ -1,5 +1,5 @@
 #
-# $Id: Kemp.LoadBalancer.Powershell.psm1 18979 2020-06-24 09:36:40Z spower $
+# $Id: Kemp.LoadBalancer.Powershell.psm1 19342 2020-09-22 12:58:30Z sgangwar $
 #
 
 $ScriptDir = Split-Path -parent $MyInvocation.MyCommand.Path
@@ -1540,6 +1540,54 @@ Function SetGetWafAuditFilesReturnObject($xmlAnsw)
 }
 
 # Internal use only
+Function SetGetAdcLimitRulesReturnObject($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "Limits" $xmlAnsw.Response.Success.Data.Limits
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "Limits"
+	$ht.add("Limits", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
+# Internal use only
+Function SetGetClientCPSLimitReturnObject($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "ClientCpsLimit" $xmlAnsw.Response.Success.Data.ClientCpsLimit
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "ClientCpsLimit"
+	$ht.add("ClientCpsLimit", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
+# Internal use only
+Function SetGetClientRPSLimitReturnObject($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "ClientRpsLimit" $xmlAnsw.Response.Success.Data.ClientRpsLimit
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "ClientRpsLimit"
+	$ht.add("ClientRpsLimit", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
+# Internal use only
+Function SetGetClientMaxcLimitReturnObject($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "ClientMaxcLimit" $xmlAnsw.Response.Success.Data.ClientMaxcLimit
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "ClientMaxcLimit"
+	$ht.add("ClientMaxcLimit", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
+# Internal use only
 Function SetGeneralCaseReturnObject($xmlAnsw)
 {
 	return $null
@@ -2064,7 +2112,7 @@ Function SetGetGeoPartnerStatusReturnObject($xmlAnsw)
 # Internal use only
 Function SetGetGeoIPBlacklistDatabaseConfigurationReturnObject($xmlAnsw)
 {
-	$data = GetPSObjectFromXml "GeoBlacklistDbConf" $xmlAnsw.Response.Success.Data.GeoAcl
+	$data = GetPSObjectFromXml "GeoBlocklistDbConf" $xmlAnsw.Response.Success.Data.GeoAcl
 
 	$ht = [ordered]@{}
 	$ht.PSTypeName = "GeoBlacklistDbConf"
@@ -2074,13 +2122,37 @@ Function SetGetGeoIPBlacklistDatabaseConfigurationReturnObject($xmlAnsw)
 }
 
 # Internal use only
+Function SetGetGeoIPBlocklistDatabaseConfigurationReturnObject($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "GeoBlocklistDbConf" $xmlAnsw.Response.Success.Data.GeoAcl
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "GeoBlocklistDbConf"
+	$ht.add("GeoBlocklistDbConf", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
+# Internal use only
 Function SetGetGeoIPWhitelistReturnObject($xmlAnsw)
 {
-	$data = GetPSObjectFromXml "GeoWhitelist" $xmlAnsw.Response.Success.Data.Whitelist
+	$data = GetPSObjectFromXml "GeoAllowlist" $xmlAnsw.Response.Success.Data.Allowlist
 
 	$ht = [ordered]@{}
 	$ht.PSTypeName = "GeoWhiteList"
 	$ht.add("GeoWhiteList", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
+# Internal use only
+Function SetGetGeoIPAllowlistReturnObject($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "GeoAllowlist" $xmlAnsw.Response.Success.Data.Allowlist
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "GeoAllowList"
+	$ht.add("GeoAllowList", $data)
 
 	New-Object -TypeName PSObject -Property $ht
 }
@@ -2104,6 +2176,35 @@ Function SetExportGeoIPWhitelistDatabaseReturnObject($xmlAnsw, $cmdOptions)
 
 	Add-Content $filename "----------------------------------------------"
 	Add-Content $filename " Whitelisted IPs ($today)"
+	Add-Content $filename "----------------------------------------------"
+
+	if ($data.addr) {
+		foreach ($ip in $data.addr) {
+			Add-Content $filename "$ip"
+		}
+	}
+	return $null
+}
+
+# Internal use only
+Function SetExportGeoIPAllowlistDatabaseReturnObject($xmlAnsw, $cmdOptions)
+{
+	$data = GetPSObjectFromXml "GeoAllowlist" $xmlAnsw.Response.Success.Data.Allowlist
+
+	$filename = $cmdOptions.filename
+	$forceSwitch = $cmdOptions.force
+
+	$today = Get-Date
+
+	if ($forceSwitch) {
+		Out-File $filename
+	}
+	else {
+		Out-File $filename -NoClobber
+	}
+
+	Add-Content $filename "----------------------------------------------"
+	Add-Content $filename " Allowlisted IPs ($today)"
 	Add-Content $filename "----------------------------------------------"
 
 	if ($data.addr) {
@@ -2160,6 +2261,10 @@ Function SetGetGeoLmMiscParameterReturnObject($xmlAnsw)
 		$data.soa | Add-Member -NotePropertyName "SOAEmail" -NotePropertyValue ""
 	}
 
+	if ( ([String]::IsNullOrEmpty($data.soa.GlueIP)) ) {
+		$data.soa | Add-Member -NotePropertyName "GlueIP" -NotePropertyValue ""
+	}
+
 	if ( ([String]::IsNullOrEmpty($data.soa.TXT)) ) {
 		$data.soa | Add-Member -NotePropertyName "TXT" -NotePropertyValue ""
 	}
@@ -2190,6 +2295,16 @@ Function SetGetVSPacketFilterACLReturnObject($xmlAnsw, $aclType)
 
 		"white" {
 			$ht.add("Whitelist", $data.WhiteList.IP)
+			break
+		}
+
+		"allow" {
+			$ht.add("Allowlist", $data.AllowList.IP)
+			break
+		}
+
+		"block" {
+			$ht.add("Blocklist", $data.BlockList.IP)
 			break
 		}
 	}
@@ -2266,6 +2381,20 @@ Function SetGetGlobalPacketFilterACLReturnObject($xmlAnsw, $aclType)
 			$ht.PSTypeName = "AclWhitelist"
 			$data = GetPSObjectFromXml "AclData" $xmlAnsw.Response.Success.Data.Whitelist
 			$ht.add("Whitelist", $data.IP)
+			break
+		}
+
+		"allow" {
+			$ht.PSTypeName = "AclAllowlist"
+			$data = GetPSObjectFromXml "AclData" $xmlAnsw.Response.Success.Data.Allowlist
+			$ht.add("Allowlist", $data.IP)
+			break
+		}
+
+		"block" {
+			$ht.PSTypeName = "AclBlocklist"
+			$data = GetPSObjectFromXml "AclData" $xmlAnsw.Response.Success.Data.Blocklist
+			$ht.add("Blocklist", $data.IP)
 			break
 		}
 	}
@@ -2862,8 +2991,11 @@ $successHandlerList = [ordered]@{
 	TestLmGeoEnabled = (gi function:SetTestLmGeoEnabledReturnObject)
 	GetGeoPartnerStatus = (gi function:SetGetGeoPartnerStatusReturnObject)
 	GetGeoIPBlacklistDatabaseConfiguration = (gi function:SetGetGeoIPBlacklistDatabaseConfigurationReturnObject)
+	GetGeoIPBlocklistDatabaseConfiguration = (gi function:SetGetGeoIPBlocklistDatabaseConfigurationReturnObject)
 	GetGeoIPWhitelist = (gi function:SetGetGeoIPWhitelistReturnObject)
+	GetGeoIPAllowlist = (gi function:SetGetGeoIPAllowlistReturnObject)
 	ExportGeoIPWhitelistDatabase = (gi function:SetExportGeoIPWhitelistDatabaseReturnObject)
+	ExportGeoIPAllowlistDatabase = (gi function:SetExportGeoIPAllowlistDatabaseReturnObject)
 	GetGeoDNSSECConfiguration = (gi function:SetGetGeoDNSSECConfigurationReturnObject)
 	GetGeoLmMiscParameter = (gi function:SetGetGeoLmMiscParameterReturnObject)
 	GetGeoStats = (gi function:SetGetGeoStatsReturnObject)
@@ -2889,6 +3021,10 @@ $successHandlerList = [ordered]@{
 
 	GetRaidController = (gi function:SetGetRaidControllerReturnObject)
 	GetRaidControllerDisk = (gi function:SetGetRaidControllerDiskReturnObject)
+	GetAdcLimitRules = (gi function:SetGetAdcLimitRulesReturnObject)
+	GetClientCPSLimit = (gi function:SetGetClientCPSLimitReturnObject)
+	GetClientRPSLimit = (gi function:SetGetClientRPSLimitReturnObject)
+	GetClientMaxcLimit = (gi function:SetGetClientMaxcLimitReturnObject)
 }
 
 # Internal use only
@@ -2956,7 +3092,7 @@ Function HandleErrorAnswer($Command2ExecClass, $xmlAnsw)
 	#
 	switch ($Command2ExecClass)
 	{
-		{ ($_ -in "GeneralCase", "NewAdcVS", "GetAdcVS_Single", "GetAdcVS_List", "SetAdcVS", "NewAdcRS", "VirtualServiceRule", "RealServerRule", "EnableDisableRS", "GetSetAdcRS", "RemoveAdcRS", "AddAdcContentRule", "RemoveAdcContentRule", "SetAdcContentRule", "GetAdcContentRule", "GetAdcServiceHealth","AdcHttpExceptions", "AdcAdaptiveHealthCheck", "AdcWafVSRules", "AddRemoveAdcWafRule", "GetLicenseAccessKey", "GetLicenseType", "GetLicenseInfo", "RequestLicenseOnline", "RequestLicenseOffline", "UpdateLicenseOnline", "UpdateLicenseOffline", "RequestLicenseOnPremise", "GetAllSecUser", "GetSingleSecUser", "GetRemoteGroup", "GetAllRemoteGroups", "GetNetworkInterface", "GetAllParameters", "GetLmNetworkInterface", "GetTlsCertificate", "GetTlsCipherSet", "GetSSODomain", "GetSSOSamlDomain", "GetSSODomainLockedUser", "SetSSODomainLockedUser", "GetSSODomainSession", "GetSSODomainQuerySession", "InstallTemplate", "ExportVSTemplate", "GetTemplate", "GetLogStatistics", "GetWafRules", "GetWafRulesAutoUpdateConfiguration", "GetWafAuditFiles", "GetGeoFQDN", "GetGeoStats", "AddGeoCluster", "SetGeoCluster", "AddNetworkVxLAN", "AddNetworkVLAN", "GetNetworkRoute", "TestNetworkRoute", "GetHosts", "GetVSTotals", "GetLdapEndpoint", "GetVpnConnection", "InstallLmAddon", "GetLmAddOn", "InstallLmPatch", "UninstallLmPatch", "GetLmPreviousFirmwareVersion", "AddSdnController", "SetSdnController", "GetSdnController", "RemoveSdnController", "GetAdcRealServer", "SetGeoFQDNSiteAddress", "GetGeoCustomLocation", "GetGeoIpRange", "TestLmGeoEnabled", "GetGeoPartnerStatus", "GetGeoIPBlacklistDatabaseConfiguration", "GetGeoIPWhitelist", "ExportGeoIPWhitelistDatabase", "GetGeoDNSSECConfiguration", "GetGeoLmMiscParameter", "GetVSPacketFilterACL", "GetPacketFilterOption", "GetGlobalPacketFilterACL", "GetLmIPConnectionLimit", "GetAzureHAConfiguration", "GetAwsHaConfiguration", "GetLmCloudHaConfiguration", "GetLmDebugInformation", "GetAslLicenseType", "GetLmVpnIkeDaemonStatus", "NewLmVpnConnection", "GetClusterStatus", "NewCluster", "GetRaidController", "GetRaidControllerDisk", "GetExtEspLogConfiguration", "GetLmLogFilesList", "GetLmLogResetFilesList", "GetLmExtendedLogFilesList", "GetLmExtendedLogResetFilesList", "GetLmApiList", "NewApiSecurityKey", "GetApiSecurityKeys", "RemoveApiSecurityKeys") } {
+		{ ($_ -in "GeneralCase", "NewAdcVS", "GetAdcVS_Single", "GetAdcVS_List", "SetAdcVS", "NewAdcRS", "VirtualServiceRule", "RealServerRule", "EnableDisableRS", "GetSetAdcRS", "RemoveAdcRS", "AddAdcContentRule", "RemoveAdcContentRule", "SetAdcContentRule", "GetAdcContentRule", "GetAdcServiceHealth","AdcHttpExceptions", "AdcAdaptiveHealthCheck", "AdcWafVSRules", "AddRemoveAdcWafRule", "GetLicenseAccessKey", "GetLicenseType", "GetLicenseInfo", "RequestLicenseOnline", "RequestLicenseOffline", "UpdateLicenseOnline", "UpdateLicenseOffline", "RequestLicenseOnPremise", "GetAllSecUser", "GetSingleSecUser", "GetRemoteGroup", "GetAllRemoteGroups", "GetNetworkInterface", "GetAllParameters", "GetLmNetworkInterface", "GetTlsCertificate", "GetTlsCipherSet", "GetSSODomain", "GetSSOSamlDomain", "GetSSODomainLockedUser", "SetSSODomainLockedUser", "GetSSODomainSession", "GetSSODomainQuerySession", "InstallTemplate", "ExportVSTemplate", "GetTemplate", "GetLogStatistics", "GetWafRules", "GetWafRulesAutoUpdateConfiguration", "GetWafAuditFiles", "GetGeoFQDN", "GetGeoStats", "AddGeoCluster", "SetGeoCluster", "AddNetworkVxLAN", "AddNetworkVLAN", "GetNetworkRoute", "TestNetworkRoute", "GetHosts", "GetVSTotals", "GetLdapEndpoint", "GetVpnConnection", "InstallLmAddon", "GetLmAddOn", "InstallLmPatch", "UninstallLmPatch", "GetLmPreviousFirmwareVersion", "AddSdnController", "SetSdnController", "GetSdnController", "RemoveSdnController", "GetAdcRealServer", "SetGeoFQDNSiteAddress", "GetGeoCustomLocation", "GetGeoIpRange", "TestLmGeoEnabled", "GetGeoPartnerStatus", "GetGeoIPBlacklistDatabaseConfiguration", "GetGeoIPBlocklistDatabaseConfiguration", "GetGeoIPWhitelist", "GetGeoIPAllowlist", "ExportGeoIPWhitelistDatabase","ExportGeoIPAllowlistDatabase", "GetGeoDNSSECConfiguration", "GetGeoLmMiscParameter", "GetVSPacketFilterACL", "GetPacketFilterOption", "GetGlobalPacketFilterACL", "GetLmIPConnectionLimit", "GetAzureHAConfiguration", "GetAwsHaConfiguration", "GetLmCloudHaConfiguration", "GetLmDebugInformation", "GetAslLicenseType", "GetLmVpnIkeDaemonStatus", "NewLmVpnConnection", "GetClusterStatus", "NewCluster", "GetRaidController", "GetRaidControllerDisk", "GetExtEspLogConfiguration", "GetLmLogFilesList", "GetLmLogResetFilesList", "GetLmExtendedLogFilesList", "GetLmExtendedLogResetFilesList", "GetLmApiList", "NewApiSec_curityKey", "GetApiSecurityKeys", "RemoveApiSecurityKeys", "GetAdcLimitRules", "GetClientCPSLimit", "GetClientRPSLimit", "GetClientMaxcLimit") } {
 			$errMsg = $xmlAnsw.Response.Error
 		}
 
@@ -8442,6 +8578,12 @@ Function New-AdcVirtualService
 		[ValidateRange(0, 1)]
 		[int]$CheckUse1_1 = -1,
 
+		[Int32]$ChkInterval,
+
+		[Int32]$ChkTimeout,
+
+		[Int32]$ChkRetryCount,
+
 		[Int32]$CheckPort,
 
 		[bool]$EnhancedHealthChecks,
@@ -8493,6 +8635,10 @@ Function New-AdcVirtualService
 
 		[string]$CipherSet,
 
+		[bool]$PassCipher,
+
+		[bool]$PassSni,
+
 		[bool]$SSLReencrypt,
 
 		[bool]$SSLReverse,
@@ -8522,7 +8668,7 @@ Function New-AdcVirtualService
 
 		[bool]$UseforSnat,
 
-		[ValidateSet("0", "1", "2", "4", "8")]
+		[ValidateSet("0", "1", "2", "4", "8", "16")]
 		[string]$QoS,
 
 		[int32]$CheckUseGet,
@@ -8547,6 +8693,8 @@ Function New-AdcVirtualService
 		[string]$SteeringGroups,
 
 		[bool]$IncludeNestedGroups,
+
+		[bool]$MultiDomainPermittedGroups,
 
 		[bool]$DisplayPubPriv,
 
@@ -8618,6 +8766,10 @@ Function New-AdcVirtualService
 		[string]$RsRulePrecedence,
 
 		[Int16]$RsRulePrecedencePos,
+
+		[string]$MatchBodyPrecedence,
+
+		[Int16]$MatchBodyPrecedencePos,
 
 		[bool]$NeedHostName,
 
@@ -8779,6 +8931,12 @@ Function Set-AdcVirtualService
 		[ValidateRange(0, 1)]
 		[int]$CheckUse1_1 = -1,
 
+		[Int32]$ChkInterval,
+
+		[Int32]$ChkTimeout,
+
+		[Int32]$ChkRetryCount,
+
 		[Int32]$CheckPort,
 
 		[bool]$EnhancedHealthChecks,
@@ -8829,6 +8987,10 @@ Function Set-AdcVirtualService
 
 		[string]$CipherSet,
 
+		[bool]$PassCipher,
+
+		[bool]$PassSni,
+
 		[bool]$SSLReencrypt,
 
 		[bool]$SSLReverse,
@@ -8858,7 +9020,7 @@ Function Set-AdcVirtualService
 
 		[bool]$UseforSnat,
 
-		[ValidateSet("0", "1", "2", "4", "8")]
+		[ValidateSet("0", "1", "2", "4", "8", "16")]
 		[string]$QoS,
 
 		[int32]$CheckUseGet,
@@ -8883,6 +9045,8 @@ Function Set-AdcVirtualService
 		[string]$SteeringGroups,
 
 		[bool]$IncludeNestedGroups,
+
+		[bool]$MultiDomainPermittedGroups,
 
 		[bool]$DisplayPubPriv,
 
@@ -8954,6 +9118,10 @@ Function Set-AdcVirtualService
 		[string]$RsRulePrecedence,
 
 		[Int16]$RsRulePrecedencePos,
+
+		[string]$MatchBodyPrecedence,
+
+		[Int16]$MatchBodyPrecedencePos,
 
 		[bool]$NeedHostName,
 
@@ -9396,6 +9564,12 @@ Function Set-AdcSubVirtualService
 		[ValidateRange(0, 1)]
 		[int]$CheckUse1_1 = -1,
 
+		[Int32]$ChkInterval,
+
+		[Int32]$ChkTimeout,
+
+		[Int32]$ChkRetryCount,
+
 		[Int32]$CheckPort,
 
 		[bool]$EnhancedHealthChecks,
@@ -9450,7 +9624,7 @@ Function Set-AdcSubVirtualService
 
 		[bool]$SubnetOriginating,
 
-		[ValidateSet("0", "1", "2", "4", "8")]
+		[ValidateSet("0", "1", "2", "4", "8", "16")]
 		[string]$QoS,
 
 		[int32]$CheckUseGet,
@@ -9475,6 +9649,8 @@ Function Set-AdcSubVirtualService
 		[string]$SteeringGroups,
 
 		[bool]$IncludeNestedGroups,
+
+		[bool]$MultiDomainPermittedGroups,
 
 		[bool]$DisplayPubPriv,
 
@@ -9542,6 +9718,10 @@ Function Set-AdcSubVirtualService
 		[string]$RsRulePrecedence,
 
 		[Int16]$RsRulePrecedencePos,
+
+		[string]$MatchBodyPrecedence,
+
+		[Int16]$MatchBodyPrecedencePos,
 
 		[bool]$NeedHostName,
 
@@ -11765,6 +11945,61 @@ Function Get-AdcTotalVirtualService
 }
 Export-ModuleMember -function Get-AdcTotalVirtualService
 
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Install-VSErrorFile
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()]
+		[string]$VirtualService,
+
+		[ValidateRange(3, 65530)]
+		[Int32]$VSPort,
+
+		[ValidateSet("tcp", "udp")]
+		[string]$VSProtocol,
+
+		[Int32]$VSIndex = -1,
+
+		[Parameter(Mandatory=$true)]
+		[string]$Path,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+		[ValidateNotNullOrEmpty()]
+		[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation $Path
+	$cmdCase = checkAdcVSInputParams $VirtualService $VSPort $VSProtocol $VSIndex 1
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "uploadvserrfile" -ParameterValuePair $params -File $Path -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "InstallLmAddon" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Install-VSErrorFile
+
 # ==================================================
 # endregion ADC
 # ==================================================
@@ -13683,6 +13918,634 @@ Function Get-LmRaidControllerDisk
 	}
 }
 Export-ModuleMember -function Get-LmRaidControllerDisk
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Get-AdcLimitRules
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "listlimitrules" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetAdcLimitRules" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Get-AdcLimitRules
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function New-AdcLimitRule
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$Name,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$Pattern,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[int]$Limit,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[ValidateSet(0, 1, 2, 64, 65, 66)]
+		[int]$Match,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "addlimitrule" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetAdcLimitRules" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function New-AdcLimitRule
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Set-AdcLimitRule
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$Name,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$Pattern,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[int]$Limit,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[ValidateSet(0, 1, 2, 64, 65, 66)]
+		[int]$Match,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "modlimitrule" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetAdcLimitRules" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Set-AdcLimitRule
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Move-AdcLimitRule
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$Name,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[int]$Position,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "movelimitrule" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetAdcLimitRules" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Move-AdcLimitRule
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Remove-AdcLimitRule
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$Name,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "dellimitrule" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetAdcLimitRules" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Remove-AdcLimitRule
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Get-ClientCPSLimit
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "clientcpslimitlist" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetClientCPSLimit" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Get-ClientCPSLimit
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function New-ClientCPSLimit
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$L7Addr,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[int]$L7Limit,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "clientcpslimitadd" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetClientCPSLimit" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function New-ClientCPSLimit
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Remove-ClientCPSLimit
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$L7Addr,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "clientcpslimitdel" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetClientCPSLimit" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Remove-ClientCPSLimit
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Get-ClientRPSLimit
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "clientrpslimitlist" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetClientRPSLimit" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Get-ClientRPSLimit
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function New-ClientRPSLimit
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$L7Addr,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[int]$L7Limit,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "clientrpslimitadd" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetClientRPSLimit" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function New-ClientRPSLimit
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Remove-ClientRPSLimit
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$L7Addr,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "clientrpslimitdel" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetClientRPSLimit" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Remove-ClientRPSLimit
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Get-ClientMaxcLimit
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "clientmaxclimitlist" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetClientMaxcLimit" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Get-ClientMaxcLimit
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function New-ClientMaxcLimit
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$L7Addr,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[int]$L7Limit,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "clientmaxclimitadd" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetClientMaxcLimit" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function New-ClientMaxcLimit
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Remove-ClientMaxcLimit
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$L7Addr,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "clientmaxclimitdel" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetClientMaxcLimit" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Remove-ClientMaxcLimit
 
 # ==================================================
 # endregion SYSTEM
@@ -17054,8 +17917,16 @@ Export-ModuleMember -function Get-GeoPartnerStatus
 
 Function Get-GeoIPBlacklistDatabaseConfiguration
 {
+	Get-GeoIPBlocklistDatabaseConfiguration @args -LegacyCall $true
+}
+Export-ModuleMember -function Get-GeoIPBlacklistDatabaseConfiguration
+
+Function Get-GeoIPBlocklistDatabaseConfiguration
+{
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
+		[bool]$LegacyCall = $false,
+
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
 
@@ -17083,18 +17954,32 @@ Function Get-GeoIPBlacklistDatabaseConfiguration
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 	$params = ConvertBoundParameters -hashtable $psboundparameters
 
+	$legacy = $params["LegacyCall"]
+	$params.Remove("LegacyCall")
+
 	try {
 		$response = SendCmdToLm -Command "geoacl/getsettings" -ParameterValuePair $params -ConnParams $ConnParams
-		HandleLmAnswer -Command2ExecClass "GetGeoIPBlacklistDatabaseConfiguration" -LMResponse $response
+		if($legacy){
+			HandleLmAnswer -Command2ExecClass "GetGeoIPBlacklistDatabaseConfiguration" -LMResponse $response
+		}
+		else{
+			HandleLmAnswer -Command2ExecClass "GetGeoIPBlocklistDatabaseConfiguration" -LMResponse $response
+		}
 	}
 	catch {
 		$errMsg = $_.Exception.Message
 		setKempAPIReturnObject 400 "$errMsg" $null
 	}
 }
-Export-ModuleMember -function Get-GeoIPBlacklistDatabaseConfiguration
+Export-ModuleMember -function Get-GeoIPBlocklistDatabaseConfiguration
 
 Function Set-GeoIPBlacklistDatabaseConfiguration
+{
+	Set-GeoIPBlocklistDatabaseConfiguration @args
+}
+Export-ModuleMember -function Set-GeoIPBlacklistDatabaseConfiguration
+
+Function Set-GeoIPBlocklistDatabaseConfiguration
 {
 	Param(
 		[Parameter(ParameterSetName="Update", Mandatory=$True)]
@@ -17187,12 +18072,20 @@ Function Set-GeoIPBlacklistDatabaseConfiguration
 	}
 	setKempAPIReturnObject 200 "Command successfully executed." $null
 }
-Export-ModuleMember -function Set-GeoIPBlacklistDatabaseConfiguration
+Export-ModuleMember -function Set-GeoIPBlocklistDatabaseConfiguration
 
 Function Update-GeoIPBlacklistDatabase
 {
+	Update-GeoIPBlocklistDatabase @args -LegacyCall $true
+}
+Export-ModuleMember -function Update-GeoIPBlacklistDatabase
+
+Function Update-GeoIPBlocklistDatabase
+{
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
+		[bool]$LegacyCall = $false,
+
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
 
@@ -17220,11 +18113,19 @@ Function Update-GeoIPBlacklistDatabase
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 	$params = ConvertBoundParameters -hashtable $psboundparameters
 
+	$legacy = $params["LegacyCall"]
+	$params.Remove("LegacyCall")
+
 	try {
 		$response = SendCmdToLm -Command "geoacl/updatenow" -ParameterValuePair $params -ConnParams $ConnParams
 		$lma = HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
 		if ($lma.ReturnCode -eq 200) {
-			$lma.Response += " Download of new GEO IP Blacklist data successfully completed."
+			if($legacy){
+				$lma.Response += " Download of new GEO IP Blacklist data successfully completed."
+			}
+			else {
+				$lma.Response += " Download of new GEO IP Blocklist data successfully completed."
+			}
 		}
 		$lma
 	}
@@ -17233,9 +18134,15 @@ Function Update-GeoIPBlacklistDatabase
 		setKempAPIReturnObject 400 "$errMsg" $null
 	}
 }
-Export-ModuleMember -function Update-GeoIPBlacklistDatabase
+Export-ModuleMember -function Update-GeoIPBlocklistDatabase
 
 Function Install-GeoIPBlacklistDatabase
+{
+	Install-GeoIPBlocklistDatabase @args
+}
+Export-ModuleMember -function Install-GeoIPBlacklistDatabase
+
+Function Install-GeoIPBlocklistDatabase
 {
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
@@ -17275,9 +18182,15 @@ Function Install-GeoIPBlacklistDatabase
 		setKempAPIReturnObject 400 "$errMsg" $null
 	}
 }
-Export-ModuleMember -function Install-GeoIPBlacklistDatabase
+Export-ModuleMember -function Install-GeoIPBlocklistDatabase
 
 Function Export-GeoIPBlacklistDatabase
+{
+	Export-GeoIPBlocklistDatabase @args
+}
+Export-ModuleMember -function Export-GeoIPBlacklistDatabase
+
+Function Export-GeoIPBlocklistDatabase
 {
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
@@ -17325,9 +18238,15 @@ Function Export-GeoIPBlacklistDatabase
 		setKempAPIReturnObject 400 "$errMsg" $null
 	}
 }
-Export-ModuleMember -function Export-GeoIPBlacklistDatabase
+Export-ModuleMember -function Export-GeoIPBlocklistDatabase
 
 Function Export-GeoIPBlacklistDatabaseChanges
+{
+	Export-GeoIPBlocklistDatabaseChanges @args
+}
+Export-ModuleMember -function Export-GeoIPBlacklistDatabaseChanges
+
+Function Export-GeoIPBlocklistDatabaseChanges
 {
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
@@ -17375,12 +18294,20 @@ Function Export-GeoIPBlacklistDatabaseChanges
 		setKempAPIReturnObject 400 "$errMsg" $null
 	}
 }
-Export-ModuleMember -function Export-GeoIPBlacklistDatabaseChanges
+Export-ModuleMember -function Export-GeoIPBlocklistDatabaseChanges
 
 Function New-GeoIPWhitelist
 {
+	New-GeoIPAllowlist @args -LegacyCall $true
+}
+Export-ModuleMember -function New-GeoIPWhitelist
+
+Function New-GeoIPAllowlist
+{
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
+		[bool]$LegacyCall = $false,
+
 		[Parameter(Mandatory=$true)]
 		[ValidateNotNullOrEmpty()]
 		[string]$Addr,
@@ -17411,12 +18338,21 @@ Function New-GeoIPWhitelist
 
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	$legacy = $params["LegacyCall"]
+	$params.Remove("LegacyCall")
 
 	try {
 		$response = SendCmdToLm -Command "geoacl/addcustom" -ParameterValuePair $params -ConnParams $ConnParams
 		$lma = HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
 		if ($lma.ReturnCode -eq 200) {
-			$lma.Response += " $Addr was successfully added to GEO ACL white list."
+			if($legacy) {
+				$lma.Response += " $Addr was successfully added to GEO ACL white list."
+			}
+			else {
+				$lma.Response += " $Addr was successfully added to GEO ACL allow list."
+			}
+			
 		}
 		$lma
 	}
@@ -17425,12 +18361,20 @@ Function New-GeoIPWhitelist
 		setKempAPIReturnObject 400 "$errMsg" $null
 	}
 }
-Export-ModuleMember -function New-GeoIPWhitelist
+Export-ModuleMember -function New-GeoIPAllowlist
 
 Function Get-GeoIPWhitelist
 {
+	Get-GeoIPAllowlist @args -LegacyCall $true
+}
+Export-ModuleMember -function Get-GeoIPWhitelist
+
+Function Get-GeoIPAllowlist
+{
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
+		[bool]$LegacyCall = $false,
+
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
 
@@ -17455,21 +18399,37 @@ Function Get-GeoIPWhitelist
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 	$params = ConvertBoundParameters -hashtable $psboundparameters
 
+	$legacy = $params["LegacyCall"]
+	$params.Remove("LegacyCall")
+
 	try {
 		$response = SendCmdToLm -Command "geoacl/listcustom" -ParameterValuePair $params -ConnParams $ConnParams
-		HandleLmAnswer -Command2ExecClass "GetGeoIPWhitelist" -LMResponse $response
+		if($legacy) {
+			HandleLmAnswer -Command2ExecClass "GetGeoIPWhitelist" -LMResponse $response
+		}
+		else {
+			HandleLmAnswer -Command2ExecClass "GetGeoIPAllowlist" -LMResponse $response
+		}
 	}
 	catch {
 		$errMsg = $_.Exception.Message
 		setKempAPIReturnObject 400 "$errMsg" $null
 	}
 }
-Export-ModuleMember -function Get-GeoIPWhitelist
+Export-ModuleMember -function Get-GeoIPAllowlist
 
 Function Remove-GeoIPWhitelist
 {
+	Remove-GeoIPAllowlist @args -LegacyCall $true
+}
+Export-ModuleMember -function Remove-GeoIPWhitelist
+
+Function Remove-GeoIPAllowlist
+{
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
+		[bool]$LegacyCall = $false,
+
 		[Parameter(Mandatory=$true)]
 		[ValidateNotNullOrEmpty()]
 		[string]$Addr,
@@ -17493,6 +18453,7 @@ Function Remove-GeoIPWhitelist
 			[ValidateNotNullOrEmpty()]
 			[String]$SubjectCN = $script:SubjectCN
 	)
+
 	<#
 	$ErrorActionPreference = "Stop"
 	#>
@@ -17501,11 +18462,20 @@ Function Remove-GeoIPWhitelist
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 	$params = ConvertBoundParameters -hashtable $psboundparameters
 
+	$legacy = $params["LegacyCall"]
+	$params.Remove("LegacyCall")
+
 	try {
 		$response = SendCmdToLm -Command "geoacl/removecustom" -ParameterValuePair $params -ConnParams $ConnParams
 		$lma = HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+
 		if ($lma.ReturnCode -eq 200) {
-			$lma.Response += " $Addr was successfully removed from GEO ACL white list."
+			if ($legacy){
+				$lma.Response += " $Addr was successfully removed from GEO ACL white list."
+			}
+			else {
+				$lma.Response += " $Addr was successfully removed from GEO ACL allow list."
+			}
 		}
 		$lma
 	}
@@ -17514,12 +18484,20 @@ Function Remove-GeoIPWhitelist
 		setKempAPIReturnObject 400 "$errMsg" $null
 	}
 }
-Export-ModuleMember -function Remove-GeoIPWhitelist
+Export-ModuleMember -function Remove-GeoIPAllowlist
 
 Function Export-GeoIPWhitelistDatabase
 {
+	Export-GeoIPAllowlistDatabase @args -LegacyCall $true
+}
+Export-ModuleMember -function Export-GeoIPWhitelistDatabase
+
+Function Export-GeoIPAllowlistDatabase
+{
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
+		[bool]$LegacyCall = $false,
+
 		[Parameter(Mandatory=$true)]
 		[ValidateNotNullOrEmpty()]
 		[string]$filename,
@@ -17554,11 +18532,19 @@ Function Export-GeoIPWhitelistDatabase
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 	$params = ConvertBoundParameters -hashtable $psboundparameters
 	$params.Remove("filename")
+	$legacy = $params["LegacyCall"]
+	$params.Remove("LegacyCall")
 
 	try {
 		$response = SendCmdToLm -Command "geoacl/listcustom" -ParameterValuePair $params -ConnParams $ConnParams
 		$addDataHt = [ordered]@{"filename" = $filename; "force" = $Force}
+
+		if($legacy) {
 		HandleLmAnswer -Command2ExecClass "ExportGeoIPWhitelistDatabase" -LMResponse $response -AdditionalData $addDataHt
+		}
+		else {
+			HandleLmAnswer -Command2ExecClass "ExportGeoIPAllowlistDatabase" -LMResponse $response -AdditionalData $addDataHt
+		}
 	}
 	catch {
 		$errMsg = $_.Exception.Message
@@ -17569,7 +18555,7 @@ Function Export-GeoIPWhitelistDatabase
 		setKempAPIReturnObject 400 "$errMsg" $null
 	}
 }
-Export-ModuleMember -function Export-GeoIPWhitelistDatabase
+Export-ModuleMember -function Export-GeoIPAllowlistDatabase
 
 Function Set-GeoDNSSECStatus
 {
@@ -17858,6 +18844,10 @@ Function Set-GeoMiscParameter
 		[String]$NameSrv,
 
 		[String]$SOAEmail,
+
+		[bool]$PerZoneSOA,
+
+		[String]$GlueIP,
 
 		[String]$TXT,
 
@@ -20685,7 +21675,7 @@ Function Get-VSPacketFilterACL
 		[Int32]$VSIndex = -1,
 
 		[Parameter(Mandatory=$true)]
-		[ValidateSet("black", "white")]
+		[ValidateSet("black", "white", "allow", "block")]
 		[String]$Type,
 
 		[ValidateNotNullOrEmpty()]
@@ -20754,7 +21744,7 @@ Function New-VSPacketFilterACL
 		[Int32]$VSIndex = -1,
 
 		[Parameter(Mandatory=$true)]
-		[ValidateSet("black", "white")]
+		[ValidateSet("black", "white", "allow", "block")]
 		[String]$Type,
 
 		[Parameter(Mandatory=$true)]
@@ -20834,7 +21824,7 @@ Function Remove-VSPacketFilterACL
 		[Int32]$VSIndex = -1,
 
 		[Parameter(Mandatory=$true)]
-		[ValidateSet("black", "white")]
+		[ValidateSet("black", "white", "allow", "block")]
 		[String]$Type,
 
 		[Parameter(Mandatory=$true)]
@@ -21020,7 +22010,7 @@ Function Get-GlobalPacketFilterACL
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
 		[Parameter(Mandatory=$true)]
-		[ValidateSet("black", "white")]
+		[ValidateSet("black", "white", "allow", "block")]
 		[String]$Type,
 
 		[ValidateNotNullOrEmpty()]
@@ -21065,7 +22055,7 @@ Function New-GlobalPacketFilterACL
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
 		[Parameter(Mandatory=$true)]
-		[ValidateSet("black", "white")]
+		[ValidateSet("black", "white", "allow", "block")]
 		[String]$Type,
 
 		[Parameter(Mandatory=$true)]
@@ -21121,7 +22111,7 @@ Function Remove-GlobalPacketFilterACL
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
 		[Parameter(Mandatory=$true)]
-		[ValidateSet("black", "white")]
+		[ValidateSet("black", "white", "allow", "block")]
 		[String]$Type,
 
 		[Parameter(Mandatory=$true)]
@@ -21859,7 +22849,7 @@ Function Set-LmAzureHAMode
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
 		[Parameter(Mandatory=$true)]
-		[ValidateSet("master", "slave", "single")]
+		[ValidateSet("master", "slave", "single", "first", "second")]
 		[string]$HAMode,
 
 		[ValidateNotNullOrEmpty()]
@@ -22020,7 +23010,7 @@ Function Set-LmAwsHAMode
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
 		[Parameter(Mandatory=$true)]
-		[ValidateSet("master", "slave", "single")]
+		[ValidateSet("master", "slave", "single", "first", "second")]
 		[string]$HAMode,
 
 		[ValidateNotNullOrEmpty()]
@@ -22174,7 +23164,7 @@ Function Set-LmCloudHAMode
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
 		[Parameter(Mandatory=$true)]
-		[ValidateSet("master", "slave", "single")]
+		[ValidateSet("master", "slave", "single", "first", "second")]
 		[string]$HAMode,
 
 		[ValidateNotNullOrEmpty()]

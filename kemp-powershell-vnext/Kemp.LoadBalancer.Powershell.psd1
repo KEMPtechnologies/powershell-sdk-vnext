@@ -15,7 +15,7 @@ RootModule = 'Kemp.LoadBalancer.Powershell.psm1'
 ModuleVersion = '0.0'
 
 # ID used to uniquely identify this module
-GUID = '88888888-4444-4444-4444-222222222222'
+GUID = '00000000-0000-0000-0000-000000000000'
 
 # Author of this module
 Author = 'Fabrizio Carpin'
