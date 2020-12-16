@@ -1,5 +1,5 @@
 #
-# $Id: Kemp.LoadBalancer.Powershell.psm1 19342 2020-09-22 12:58:30Z sgangwar $
+# $Id: Kemp.LoadBalancer.Powershell.psm1 19775 2020-12-10 14:38:23Z spower $
 #
 
 $ScriptDir = Split-Path -parent $MyInvocation.MyCommand.Path
@@ -1195,7 +1195,7 @@ Function doRemoveNonSamlData($singleSSODomain)
 		$singleSSODomain.PSObject.Properties.Remove("unblock_tout")
 		$singleSSODomain.PSObject.Properties.Remove("sess_tout_idle_priv")
 		$singleSSODomain.PSObject.Properties.Remove("sess_tout_duration_priv")
-		$singleSSODomain.PSObject.Properties.Remove("cert_check_asi")
+		$singleSSODomain.PSObject.Properties.Remove("cert_asi")
 		$singleSSODomain.PSObject.Properties.Remove("cert_check_cn")
 	}
 }
@@ -1583,6 +1583,63 @@ Function SetGetClientMaxcLimitReturnObject($xmlAnsw)
 	$ht = [ordered]@{}
 	$ht.PSTypeName = "ClientMaxcLimit"
 	$ht.add("ClientMaxcLimit", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
+# Internal use only
+Function SetGetClientBandwidthLimitReturnObject($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "ClientBandwidthLimit" $xmlAnsw.Response.Success.Data.ClientBandwidthLimit
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "ClientBandwidthLimit"
+	$ht.add("ClientBandwidthLimit", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
+# Internal use only
+Function SetGetModeReturnObject($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "Mode" $xmlAnsw.Response.Success.Data
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "Mode"
+	$ht.add("Mode", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+# Internal use only
+Function SetGetNamespaceReturnObject($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "Namespace" $xmlAnsw.Response.Success.Data
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "Namespace"
+	$ht.add("Namespace", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+# Internal use only
+Function SetGetWatchTimeoutReturnObject($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "WatchTimeout" $xmlAnsw.Response.Success.Data
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "WatchTimeout"
+	$ht.add("WatchTimeout", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+# Internal use only
+Function SetGetContextReturnObject($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "Context" $xmlAnsw.Response.Success.Data
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "Context"
+	$ht.add("Context", $data)
 
 	New-Object -TypeName PSObject -Property $ht
 }
@@ -3025,6 +3082,12 @@ $successHandlerList = [ordered]@{
 	GetClientCPSLimit = (gi function:SetGetClientCPSLimitReturnObject)
 	GetClientRPSLimit = (gi function:SetGetClientRPSLimitReturnObject)
 	GetClientMaxcLimit = (gi function:SetGetClientMaxcLimitReturnObject)
+	GetClientBandwidthLimit = (gi function:SetGetClientBandwidthLimitReturnObject)
+
+	GetMode = (gi function:SetGetModeReturnObject)
+	GetNamespace = (gi function:SetGetNamespaceReturnObject)
+	GetWatchTimeout = (gi function:SetGetWatchTimeoutReturnObject)
+	GetContext = (gi function:SetGetContextReturnObject)
 }
 
 # Internal use only
@@ -3092,7 +3155,7 @@ Function HandleErrorAnswer($Command2ExecClass, $xmlAnsw)
 	#
 	switch ($Command2ExecClass)
 	{
-		{ ($_ -in "GeneralCase", "NewAdcVS", "GetAdcVS_Single", "GetAdcVS_List", "SetAdcVS", "NewAdcRS", "VirtualServiceRule", "RealServerRule", "EnableDisableRS", "GetSetAdcRS", "RemoveAdcRS", "AddAdcContentRule", "RemoveAdcContentRule", "SetAdcContentRule", "GetAdcContentRule", "GetAdcServiceHealth","AdcHttpExceptions", "AdcAdaptiveHealthCheck", "AdcWafVSRules", "AddRemoveAdcWafRule", "GetLicenseAccessKey", "GetLicenseType", "GetLicenseInfo", "RequestLicenseOnline", "RequestLicenseOffline", "UpdateLicenseOnline", "UpdateLicenseOffline", "RequestLicenseOnPremise", "GetAllSecUser", "GetSingleSecUser", "GetRemoteGroup", "GetAllRemoteGroups", "GetNetworkInterface", "GetAllParameters", "GetLmNetworkInterface", "GetTlsCertificate", "GetTlsCipherSet", "GetSSODomain", "GetSSOSamlDomain", "GetSSODomainLockedUser", "SetSSODomainLockedUser", "GetSSODomainSession", "GetSSODomainQuerySession", "InstallTemplate", "ExportVSTemplate", "GetTemplate", "GetLogStatistics", "GetWafRules", "GetWafRulesAutoUpdateConfiguration", "GetWafAuditFiles", "GetGeoFQDN", "GetGeoStats", "AddGeoCluster", "SetGeoCluster", "AddNetworkVxLAN", "AddNetworkVLAN", "GetNetworkRoute", "TestNetworkRoute", "GetHosts", "GetVSTotals", "GetLdapEndpoint", "GetVpnConnection", "InstallLmAddon", "GetLmAddOn", "InstallLmPatch", "UninstallLmPatch", "GetLmPreviousFirmwareVersion", "AddSdnController", "SetSdnController", "GetSdnController", "RemoveSdnController", "GetAdcRealServer", "SetGeoFQDNSiteAddress", "GetGeoCustomLocation", "GetGeoIpRange", "TestLmGeoEnabled", "GetGeoPartnerStatus", "GetGeoIPBlacklistDatabaseConfiguration", "GetGeoIPBlocklistDatabaseConfiguration", "GetGeoIPWhitelist", "GetGeoIPAllowlist", "ExportGeoIPWhitelistDatabase","ExportGeoIPAllowlistDatabase", "GetGeoDNSSECConfiguration", "GetGeoLmMiscParameter", "GetVSPacketFilterACL", "GetPacketFilterOption", "GetGlobalPacketFilterACL", "GetLmIPConnectionLimit", "GetAzureHAConfiguration", "GetAwsHaConfiguration", "GetLmCloudHaConfiguration", "GetLmDebugInformation", "GetAslLicenseType", "GetLmVpnIkeDaemonStatus", "NewLmVpnConnection", "GetClusterStatus", "NewCluster", "GetRaidController", "GetRaidControllerDisk", "GetExtEspLogConfiguration", "GetLmLogFilesList", "GetLmLogResetFilesList", "GetLmExtendedLogFilesList", "GetLmExtendedLogResetFilesList", "GetLmApiList", "NewApiSec_curityKey", "GetApiSecurityKeys", "RemoveApiSecurityKeys", "GetAdcLimitRules", "GetClientCPSLimit", "GetClientRPSLimit", "GetClientMaxcLimit") } {
+		{ ($_ -in "GeneralCase", "NewAdcVS", "GetAdcVS_Single", "GetAdcVS_List", "SetAdcVS", "NewAdcRS", "VirtualServiceRule", "RealServerRule", "EnableDisableRS", "GetSetAdcRS", "RemoveAdcRS", "AddAdcContentRule", "RemoveAdcContentRule", "SetAdcContentRule", "GetAdcContentRule", "GetAdcServiceHealth","AdcHttpExceptions", "AdcAdaptiveHealthCheck", "AdcWafVSRules", "AddRemoveAdcWafRule", "GetLicenseAccessKey", "GetLicenseType", "GetLicenseInfo", "RequestLicenseOnline", "RequestLicenseOffline", "UpdateLicenseOnline", "UpdateLicenseOffline", "RequestLicenseOnPremise", "GetAllSecUser", "GetSingleSecUser", "GetRemoteGroup", "GetAllRemoteGroups", "GetNetworkInterface", "GetAllParameters", "GetLmNetworkInterface", "GetTlsCertificate", "GetTlsCipherSet", "GetSSODomain", "GetSSOSamlDomain", "GetSSODomainLockedUser", "SetSSODomainLockedUser", "GetSSODomainSession", "GetSSODomainQuerySession", "InstallTemplate", "ExportVSTemplate", "GetTemplate", "GetLogStatistics", "GetWafRules", "GetWafRulesAutoUpdateConfiguration", "GetWafAuditFiles", "GetGeoFQDN", "GetGeoStats", "AddGeoCluster", "SetGeoCluster", "AddNetworkVxLAN", "AddNetworkVLAN", "GetNetworkRoute", "TestNetworkRoute", "GetHosts", "GetVSTotals", "GetLdapEndpoint", "GetVpnConnection", "InstallLmAddon", "GetLmAddOn", "InstallLmPatch", "UninstallLmPatch", "GetLmPreviousFirmwareVersion", "AddSdnController", "SetSdnController", "GetSdnController", "RemoveSdnController", "GetAdcRealServer", "SetGeoFQDNSiteAddress", "GetGeoCustomLocation", "GetGeoIpRange", "TestLmGeoEnabled", "GetGeoPartnerStatus", "GetGeoIPBlacklistDatabaseConfiguration", "GetGeoIPBlocklistDatabaseConfiguration", "GetGeoIPWhitelist", "GetGeoIPAllowlist", "ExportGeoIPWhitelistDatabase","ExportGeoIPAllowlistDatabase", "GetGeoDNSSECConfiguration", "GetGeoLmMiscParameter", "GetVSPacketFilterACL", "GetPacketFilterOption", "GetGlobalPacketFilterACL", "GetLmIPConnectionLimit", "GetAzureHAConfiguration", "GetAwsHaConfiguration", "GetLmCloudHaConfiguration", "GetLmDebugInformation", "GetAslLicenseType", "GetLmVpnIkeDaemonStatus", "NewLmVpnConnection", "GetClusterStatus", "NewCluster", "GetRaidController", "GetRaidControllerDisk", "GetExtEspLogConfiguration", "GetLmLogFilesList", "GetLmLogResetFilesList", "GetLmExtendedLogFilesList", "GetLmExtendedLogResetFilesList", "GetLmApiList", "NewApiSec_curityKey", "GetApiSecurityKeys", "RemoveApiSecurityKeys", "GetAdcLimitRules", "GetClientCPSLimit", "GetClientRPSLimit", "GetClientMaxcLimit", "GetClientBandwidthLimit", "GetMode", "GetNamespace", "GetWatchTimeout", "GetContext") } {
 			$errMsg = $xmlAnsw.Response.Error
 		}
 
@@ -6181,6 +6244,26 @@ Function CheckSetSSODomainLoginFmtParam($logon_fmt, $iparams)
 	}
 }
 
+# Internal use only
+Function CheckSetSSODomainCertASIParam($cert_asi, $iparams)
+{
+	# RESTful API mapping
+	if ($cert_asi -eq "NotSpecified") {
+		$iparams.Remove("cert_asi")
+		$iparams.Add("cert_asi", "Not Specified")
+	}
+
+	if ($cert_asi -eq "IssuerandSubject") {
+		$iparams.Remove("cert_asi")
+		$iparams.Add("cert_asi", "Issuer and Subject")
+	}
+
+	if ($cert_asi -eq "IssuerandSerialNumber") {
+		$iparams.Remove("cert_asi")
+		$iparams.Add("cert_asi", "Issuer and Serial Number")
+	}
+}
+
 #.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
 Function Set-SSODomain
 {
@@ -6292,8 +6375,8 @@ Function Set-SSODomain
 		[string]$server_side,
 
 		[Parameter(ValueFromPipelineByPropertyName=$true)]
-		[Alias("CertCheck")]
-		[string]$cert_check_asi,
+		[ValidateSet("NotSpecified", "Not Specified", "Subject", "Issuer and Subject", "IssuerandSubject", "Issuer and Serial Number", "IssuerandSerialNumber")]
+		[string]$cert_asi,
 
 		[Parameter(ValueFromPipelineByPropertyName=$true)]
 		[Alias("CertCheckCn")]
@@ -6329,6 +6412,7 @@ Function Set-SSODomain
 	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 
 	CheckSetSSODomainLoginFmtParam $logon_fmt $psboundparameters
+	CheckSetSSODomainCertASIParam $cert_asi $psboundparameters
 
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 	$params = ConvertBoundParameters -hashtable $psboundparameters
@@ -8720,7 +8804,7 @@ Function New-AdcVirtualService
 		[ValidateRange(0, 2)]
 		[Int16]$SecurityHeaderOptions,
 
-		[ValidateRange(0, 6)]
+		[ValidateRange(0, 7)]
 		[Int16]$InputAuthMode,
 
 		[ValidateNotNullOrEmpty()]
@@ -8784,6 +8868,10 @@ Function New-AdcVirtualService
 		[string]$BearerCertificateName,
 
 		[string]$BearerText,
+		
+		[int]$BandWidth,
+
+		[bool]$RefreshPersist,
 
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
@@ -9072,7 +9160,7 @@ Function Set-AdcVirtualService
 		[ValidateRange(0, 2)]
 		[Int16]$SecurityHeaderOptions,
 
-		[ValidateRange(0, 6)]
+		[ValidateRange(0, 7)]
 		[Int16]$InputAuthMode,
 
 		[ValidateNotNullOrEmpty()]
@@ -9179,6 +9267,10 @@ Function Set-AdcVirtualService
 		[String]$ServerFbaUsernameOnly,
 
 		[string]$VSNewAddress,
+
+		[int]$BandWidth,
+
+		[bool]$RefreshPersist,
 
 		[ValidateRange(3, 65530)]
 		[Int32]$VSNewPort,
@@ -9676,7 +9768,7 @@ Function Set-AdcSubVirtualService
 		[ValidateRange(0, 2)]
 		[Int16]$SecurityHeaderOptions,
 
-		[ValidateRange(0, 6)]
+		[ValidateRange(0, 7)]
 		[Int16]$InputAuthMode,
 
 		[ValidateNotNullOrEmpty()]
@@ -9780,6 +9872,10 @@ Function Set-AdcSubVirtualService
 		[Int64]$Limit = 0,
 
 		[bool]$Critical,
+
+		[int]$BandWidth,
+
+		[bool]$RefreshPersist,
 
 		[ValidateSet("yes", "no")]
 		[String]$ServerFbaUsernameOnly,
@@ -14547,6 +14643,551 @@ Function Remove-ClientMaxcLimit
 }
 Export-ModuleMember -function Remove-ClientMaxcLimit
 
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Get-ClientBandwidthLimit
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "clientbandwidthlimitlist" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetClientBandwidthLimit" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Get-ClientBandwidthLimit
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function New-ClientBandwidthLimit
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$L7Addr,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[int]$L7Limit,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "clientbandwidthlimitadd" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetClientBandwidthLimit" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function New-ClientBandwidthLimit
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Remove-ClientBandwidthLimit
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$L7Addr,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "clientbandwidthlimitdel" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetClientBandwidthLimit" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Remove-ClientBandwidthLimit
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Get-LMIngressMode
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "getlmingressmode" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetMode" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Get-LMIngressMode
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Set-LMIngressMode
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$Mode,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "setlmingressmode" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Set-LMIngressMode
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Get-LMIngressNamespace
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "getlmingressnamespace" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetNamespace" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Get-LMIngressNamespace
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Set-LMIngressNamespace
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$Namespace,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "setlmingressnamespace" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Set-LMIngressNamespace
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Get-LMIngressWatchTimeout
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "getlmingresswatchtimeout" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetWatchTimeout" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Get-LMIngressWatchTimeout
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Set-LMIngressWatchTimeout
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$WatchTimeout,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "setlmingresswatchtimeout" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Set-LMIngressWatchTimeout
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Get-LMIngressK8sConf
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "showlmingressk8sconf" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetContext" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Get-LMIngressK8sConf
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Restart-LMIngress
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "restartlmingress" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Restart-LMIngress
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Install-LMIngressK8sConf
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()]
+		[Parameter(Mandatory=$true)]
+		[string]$Path,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+		[ValidateNotNullOrEmpty()]
+		[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation $Path
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "addlmingressk8sconf" -ParameterValuePair $params -File $Path -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "InstallLmAddon" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Install-LMIngressK8sConf
+
+#.ExternalHelp Kemp.LoadBalancer.Powershell-Help.xml
+Function Remove-LMIngressK8sConf
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	try {
+		$response = SendCmdToLm -Command "dellmingressk8sconf" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Remove-LMIngressK8sConf
+
 # ==================================================
 # endregion SYSTEM
 # ==================================================
@@ -18847,6 +19488,8 @@ Function Set-GeoMiscParameter
 
 		[bool]$PerZoneSOA,
 
+		[bool]$DClustUnavail,
+
 		[String]$GlueIP,
 
 		[String]$TXT,
@@ -19100,6 +19743,192 @@ Function Get-GeoStatistics
 	}
 }
 Export-ModuleMember -function Get-GeoStatistics
+
+Function New-GeoFQDNResourceRecord
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[String]$FQDN,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[String]$Type,
+
+		[ValidateNotNullOrEmpty()]
+		[String]$RData,
+
+		[ValidateNotNullOrEmpty()]
+		[String]$Name,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+
+
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	if($type -ieq "TXT" -Or $type -ieq "MX"){
+		if(!$RData){
+			$Rdata = Read-Host -Prompt "RData"
+			$params.Add("RData", $RData)
+		}
+	}
+	elseif($type -ieq "CNAME"){
+		if(!$Name){
+			$Name = Read-Host -Prompt "Name"
+			$params.Add("Name", $Name)
+		}
+	}
+
+	try {
+		$response = SendCmdToLm -Command "addrr" -ParameterValuePair $params -ConnParams $ConnParams
+		$lma = HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+		if ($lma.ReturnCode -eq 200) {
+			$lma.Response += " Added record FQDN $FQDN"
+		}
+		$lma
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function New-GeoFQDNResourceRecord
+
+Function Set-GeoFQDNResourceRecord
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[String]$FQDN,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[String]$Type,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[Int]$ID,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[String]$Param,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[String]$Value,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "modrr" -ParameterValuePair $params -ConnParams $ConnParams
+		$lma = HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+		if ($lma.ReturnCode -eq 200) {
+			$lma.Response += " Updated record FQDN $FQDN $ID"
+		}
+		$lma
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Set-GeoFQDNResourceRecord
+
+Function Remove-GeoFQDNResourceRecord
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[String]$FQDN,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[Int]$ID,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "delrr" -ParameterValuePair $params -ConnParams $ConnParams
+		$lma = HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+		if ($lma.ReturnCode -eq 200) {
+			$lma.Response += " Deleted record FQDN $FQDN $ID"
+		}
+		$lma
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Remove-GeoFQDNResourceRecord
 
 # ==================================================
 # endregion GEO
