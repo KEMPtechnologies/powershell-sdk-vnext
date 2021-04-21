@@ -1,5 +1,5 @@
 #
-# $Id: Kemp.LoadBalancer.Powershell.psm1 20342 2021-02-25 08:12:55Z sgangwar $
+# $Id: Kemp.LoadBalancer.Powershell.psm1 20682 2021-04-21 06:46:56Z spower $
 #
 
 $ScriptDir = Split-Path -parent $MyInvocation.MyCommand.Path
@@ -1496,6 +1496,16 @@ Function SetGetLogStatisticsReturnObject($xmlAnsw, $stats2collect)
 		if ($xmlAnsw.Response.Success.Data.TPS) {
 			$tpsData = GetPSObjectFromXml "TpsStats" $xmlAnsw.Response.Success.Data.TPS
 			$ht.Add("TPS", $tpsData) | Out-null
+		}
+
+		if ($xmlAnsw.Response.Success.Data.ClientLimits) {
+			$clientLimitsData = GetPSObjectFromXml "ClientLimits" $xmlAnsw.Response.Success.Data.ClientLimits
+			$ht.Add("ClientLimits", $clientLimitsData) | Out-null
+		}
+
+		if ($xmlAnsw.Response.Success.Data.CountryCounts) {
+			$countryCountsData = GetPSObjectFromXml "CountryCounts" $xmlAnsw.Response.Success.Data.CountryCounts
+			$ht.Add("CountryCounts", $countryCountsData) | Out-null
 		}
 	}
 
@@ -4057,7 +4067,9 @@ Function ConvertBoundParameters
 	Param(
 		[hashtable]$hashtable,
 
-		[switch]$SkipEncoding
+		[switch]$SkipEncoding,
+
+		[string[]]$DontEncode
 	)
 
 	$propertyTable = @{}
@@ -4078,8 +4090,18 @@ Function ConvertBoundParameters
 			}
 		}
 		else {
-			if ($SkipEncoding -eq $false) {
-				$value = [System.Web.HttpUtility]::UrlEncode($hashtable[$param])
+			if ($SkipEncoding -eq $false ) {
+				if($DontEncode){
+					if ($param -In $DontEncode){
+						$value = $hashtable[$param]
+					}
+					else{
+						$value = [System.Web.HttpUtility]::UrlEncode($hashtable[$param])
+					}
+				}
+				else{
+					$value = [System.Web.HttpUtility]::UrlEncode($hashtable[$param])
+				}
 			}
 			else {
 				$value = $hashtable[$param]
@@ -8931,6 +8953,34 @@ Function New-AdcVirtualService
 
 		[int]$MaxConnsLimit,
 
+		[int]$InterceptMode,
+
+		[string]$OWASPOpts,
+
+		[int]$BlockingParanoia,
+
+		[int]$ExecutingParanoia,
+
+		[int]$AnomalyScoringThreshold,
+
+		[int]$PCRELimit,
+
+		[bool]$IPReputationBlocking,
+
+		[string]$RuleSets,
+
+		[string]$CustomRules,
+
+		[string]$ExcludedWorkLoads,
+
+		[string]$DisabledRules,
+
+		[string]$BlockedCountries,
+
+		[string]$AuditParts,
+
+		[string]$PostOtherContentTypes,
+
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
 
@@ -8953,7 +9003,7 @@ Function New-AdcVirtualService
 	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
-	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$params = ConvertBoundParameters -hashtable $psboundparameters -DontEncode @("BlockedCountries", "CustomRules", "DisabledRules", "PostOtherContentTypes" )
 
 	SetAdcVirtualserviceCheckUserParam $params $CheckUse1_1
 
@@ -9339,6 +9389,34 @@ Function Set-AdcVirtualService
 
 		[int]$MaxConnsLimit,
 
+		[int]$InterceptMode,
+
+		[string]$OWASPOpts,
+
+		[int]$BlockingParanoia,
+
+		[int]$ExecutingParanoia,
+
+		[int]$AnomalyScoringThreshold,
+
+		[int]$PCRELimit,
+
+		[bool]$IPReputationBlocking,
+
+		[string]$RuleSets,
+
+		[string]$CustomRules,
+
+		[string]$ExcludedWorkLoads,
+
+		[string]$DisabledRules,
+
+		[string]$BlockedCountries,
+
+		[string]$AuditParts,
+
+		[string]$PostOtherContentTypes,
+
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
 
@@ -9368,7 +9446,7 @@ Function Set-AdcVirtualService
 	}
 
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
-	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$params = ConvertBoundParameters -hashtable $psboundparameters -DontEncode @("BlockedCountries", "CustomRules", "DisabledRules", "PostOtherContentTypes" )
 
 	if ($VSNewAddress) {
 		$params.Remove("VSNewAddress")
@@ -9950,6 +10028,34 @@ Function Set-AdcSubVirtualService
 
 		[int]$MaxConnsLimit,
 
+		[int]$InterceptMode,
+
+		[string]$OWASPOpts,
+
+		[int]$BlockingParanoia,
+
+		[int]$ExecutingParanoia,
+
+		[int]$AnomalyScoringThreshold,
+
+		[int]$PCRELimit,
+
+		[bool]$IPReputationBlocking,
+
+		[string]$RuleSets,
+
+		[string]$CustomRules,
+
+		[string]$ExcludedWorkLoads,
+
+		[string]$DisabledRules,
+
+		[string]$BlockedCountries,
+
+		[string]$AuditParts,
+
+		[string]$PostOtherContentTypes,
+
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
 
@@ -9981,7 +10087,7 @@ Function Set-AdcSubVirtualService
 	}
 
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
-	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$params = ConvertBoundParameters -hashtable $psboundparameters -DontEncode @("BlockedCountries", "CustomRules", "DisabledRules", "PostOtherContentTypes" )
 	$params.Remove("SubVSIndex")
 	$params.Add("vs", $SubVSIndex)
 
@@ -16863,6 +16969,319 @@ Function Set-WafRulesAutoUpdateConfiguration
 	}
 }
 Export-ModuleMember -function Set-WafRulesAutoUpdateConfiguration
+
+Function New-OWASPCustomRuleData
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateScript({Test-Path $_})]
+		[string]$Path,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	if ($Path) {
+		$params.Remove("Path")
+		$Filename = Split-Path $Path -leaf
+		if ($Filename) {
+			$params.Add("filename", $Filename)
+		}
+		else {
+			Throw "ERROR: Malformed file name"
+			return
+		}
+	}
+	else {
+		Throw "ERROR: Path is a mandatory parameter"
+		return
+	}
+
+	try {
+		$response = SendCmdToLm -Command "addowaspcustomdata" -ParameterValuePair $params -File $Path -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function New-OWASPCustomRuleData, AddOWASPCustomData
+
+Function Export-OWASPCustomRuleData
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[string]$Path,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[String]$RuleDataName,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN,
+
+		[switch]$Force
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	if (-not ($Path)) {
+		$Path = "$($Env:SystemRoot)\Temp\OWASPCustomRuleData_$(Get-Date -format yyyy-MM-dd_HH-mm-ss)"
+	}
+	$Path = validatePath $Path $RuleDataName
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$params.Remove("Path")
+	$params.Remove("RuleDataName")
+	$params.Add("filename", $RuleDataName)
+
+	try {
+		$response = SendCmdToLm -Command "downloadowaspcustomdata" -ParameterValuePair $params -File $Path -Output -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Export-OWASPCustomRuleData, DownloadOWASPCustomData
+
+Function Uninstall-OWASPCustomRuleData
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[String]$Filename,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "delowaspcustomdata" -ParameterValuePair $params -File $Path -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Uninstall-OWASPCustomRuleData, DelOWASPCustomData
+
+Function New-OWASPCustomRuleSet
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateScript({Test-Path $_})]
+		[string]$Path,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	if ($Path) {
+		$params.Remove("Path")
+		$Filename = Split-Path $Path -leaf
+		if ($Filename) {
+			$params.Add("filename", $Filename)
+		}
+		else {
+			Throw "ERROR: Malformed file name"
+			return
+		}
+	}
+	else {
+		Throw "ERROR: Path is a mandatory parameter"
+		return
+	}
+
+	try {
+		$response = SendCmdToLm -Command "addowaspcustomrule" -ParameterValuePair $params -File $Path -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function New-OWASPCustomRuleSet, AddOWASPCustomRule
+
+Function Uninstall-OWASPCustomRuleSet
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[String]$Filename,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "delowaspcustomrule" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Uninstall-OWASPCustomRuleSet, DelOWASPCustomRule
+
+Function Export-OWASPCustomRuleSet
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[string]$Path,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[String]$RuleSetName,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN,
+
+		[switch]$Force
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	if (-not ($Path)) {
+		$Path = "$($Env:SystemRoot)\Temp\OWASPCustomRuleSet_$(Get-Date -format yyyy-MM-dd_HH-mm-ss)"
+	}
+	$Path = validatePath $Path $RuleSetName
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+	$params.Remove("Path")
+	$params.Remove("RuleSetName")
+	$params.Add("filename", $RuleSetName)
+
+	try {
+		$response = SendCmdToLm -Command "downloadowaspcustomrule" -ParameterValuePair $params -File $Path -Output -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Export-OWASPCustomRuleSet, DownloadOWASPCustomRule
+
 
 # ==================================================
 # endregion WAF
