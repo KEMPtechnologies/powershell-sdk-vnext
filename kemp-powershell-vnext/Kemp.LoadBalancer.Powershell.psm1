@@ -1,5 +1,5 @@
 #
-# $Id: Kemp.LoadBalancer.Powershell.psm1 20690 2021-04-22 12:17:11Z spower $
+# $Id: Kemp.LoadBalancer.Powershell.psm1 20854 2021-06-29 09:48:25Z spower $
 #
 
 $ScriptDir = Split-Path -parent $MyInvocation.MyCommand.Path
@@ -8875,7 +8875,7 @@ Function New-AdcVirtualService
 
 		[string]$UserPwdChangeMsg,
 
-		[ValidateRange(0, 2)]
+		[ValidateRange(0, 6)]
 		[Int16]$SecurityHeaderOptions,
 
 		[ValidateRange(0, 8)]
@@ -8992,6 +8992,10 @@ Function New-AdcVirtualService
 
 		[ValidateRange(0, 100000)]
 		[int32]$AlertThreshold,
+
+		[int]$SameSite,
+
+		[int]$BodyLimit,
 
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
@@ -9277,7 +9281,7 @@ Function Set-AdcVirtualService
 
 		[string]$UserPwdChangeMsg,
 
-		[ValidateRange(0, 2)]
+		[ValidateRange(0, 6)]
 		[Int16]$SecurityHeaderOptions,
 
 		[ValidateRange(0, 8)]
@@ -9428,6 +9432,10 @@ Function Set-AdcVirtualService
 		[string]$AuditParts,
 
 		[string]$PostOtherContentTypes,
+
+		[int]$SameSite,
+
+		[int]$BodyLimit,
 
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
@@ -9919,7 +9927,7 @@ Function Set-AdcSubVirtualService
 
 		[string]$UserPwdChangeMsg,
 
-		[ValidateRange(0, 2)]
+		[ValidateRange(0, 6)]
 		[Int16]$SecurityHeaderOptions,
 
 		[ValidateRange(0, 8)]
@@ -10067,6 +10075,10 @@ Function Set-AdcSubVirtualService
 		[string]$AuditParts,
 
 		[string]$PostOtherContentTypes,
+
+		[int]$SameSite,
+
+		[int]$BodyLimit,
 
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
@@ -26796,8 +26808,8 @@ Export-ModuleMember -function Get-LEAccountInfo
 # SIG # Begin signature block
 # MIISqgYJKoZIhvcNAQcCoIISmzCCEpcCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCAf97THsjR5+Zzh
-# RjqiQ0NMUPNjJtMGrOAxq6vH9DifCaCCAl8wggJbMIIB4qADAgECAgIQADAKBggq
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCChdeQ5+zCKvdCv
+# dZ2gXG9PY8eM7WVyKvbXWmdUg5ykdqCCAl8wggJbMIIB4qADAgECAgIQADAKBggq
 # hkjOPQQDAzBgMQswCQYDVQQGEwJVUzELMAkGA1UECAwCTlkxHzAdBgNVBAoMFktl
 # bXAgVGVjaG5vbG9naWVzIEluYy4xIzAhBgNVBAMMGktlbXAgQ2VydGlmaWNhdGUg
 # QXV0aG9yaXR5MB4XDTIwMDUyNzA4MDgzNVoXDTIyMDUyNzA4MDgzNVowVzELMAkG
@@ -26814,14 +26826,14 @@ Export-ModuleMember -function Get-LEAccountInfo
 # TlkxHzAdBgNVBAoMFktlbXAgVGVjaG5vbG9naWVzIEluYy4xIzAhBgNVBAMMGktl
 # bXAgQ2VydGlmaWNhdGUgQXV0aG9yaXR5AgIQADANBglghkgBZQMEAgEFAKB8MBAG
 # CisGAQQBgjcCAQwxAjAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMC8GCSqGSIb3DQEJBDEiBCB52c1kmw5B
-# qH6pXmEj/q00r1DUOnx4LtrPn9ARVAaTdTALBgcqhkjOPQIBBQAEZjBkAjA+ZG6A
-# zMoDbCZmfMLUO3gFF9zyiIVyjDcu1kotaizbkoJviz8mSaP4iDM2uwtB6JMCMETZ
-# LEH3WXO4h95Z1wgq+raA2NAAFN9/uiFPjk/egKORsTM0cAVPiyruZhI1nG7I7KGC
-# Diwwgg4oBgorBgEEAYI3AwMBMYIOGDCCDhQGCSqGSIb3DQEHAqCCDgUwgg4BAgED
-# MQ0wCwYJYIZIAWUDBAIBMIH/BgsqhkiG9w0BCRABBKCB7wSB7DCB6QIBAQYLYIZI
-# AYb4RQEHFwMwITAJBgUrDgMCGgUABBTnVY3omcWuzH13j/OJJEthfwYABwIVAKVO
-# xLiCawvaDkFNV0Y2lQcXxFbCGA8yMDIxMDQyMzE1MjQxOFowAwIBHqCBhqSBgzCB
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMC8GCSqGSIb3DQEJBDEiBCD4Ox5DdjRh
+# ARf1nUR7zQG2Dyky/fqPFPaK1R6KyjdKwjALBgcqhkjOPQIBBQAEZzBlAjBF88yw
+# o6yGHwbafI1yIw8X6J2I/7AjUX3nM4kklnTqVi1dhcqS08PjmP/Dx98DplwCMQDR
+# J07AvXDu453N0MqvsgQJoQqlHYUXtXxBhaGSfLiUp/NeSWTK026IdzZ/mOcWThKh
+# gg4rMIIOJwYKKwYBBAGCNwMDATGCDhcwgg4TBgkqhkiG9w0BBwKggg4EMIIOAAIB
+# AzENMAsGCWCGSAFlAwQCATCB/gYLKoZIhvcNAQkQAQSgge4EgeswgegCAQEGC2CG
+# SAGG+EUBBxcDMCEwCQYFKw4DAhoFAAQUhfbb8QRCG3hJy0yAQnKN+Ql2ddICFEkC
+# nFrOIVfEt88Ah0WyDECL+XiAGA8yMDIxMDkwODE1MzcwMlowAwIBHqCBhqSBgzCB
 # gDELMAkGA1UEBhMCVVMxHTAbBgNVBAoTFFN5bWFudGVjIENvcnBvcmF0aW9uMR8w
 # HQYDVQQLExZTeW1hbnRlYyBUcnVzdCBOZXR3b3JrMTEwLwYDVQQDEyhTeW1hbnRl
 # YyBTSEEyNTYgVGltZVN0YW1waW5nIFNpZ25lciAtIEczoIIKizCCBTgwggQgoAMC
@@ -26885,13 +26897,13 @@ Export-ModuleMember -function Get-LEAccountInfo
 # IENvcnBvcmF0aW9uMR8wHQYDVQQLExZTeW1hbnRlYyBUcnVzdCBOZXR3b3JrMSgw
 # JgYDVQQDEx9TeW1hbnRlYyBTSEEyNTYgVGltZVN0YW1waW5nIENBAhB71OWvuswH
 # P6EBIwQiQU0SMAsGCWCGSAFlAwQCAaCBpDAaBgkqhkiG9w0BCQMxDQYLKoZIhvcN
-# AQkQAQQwHAYJKoZIhvcNAQkFMQ8XDTIxMDQyMzE1MjQxOFowLwYJKoZIhvcNAQkE
-# MSIEILQt3utYU4efxJ1CqUyjvMwDes3CbdRclUiNYBJpI3eYMDcGCyqGSIb3DQEJ
+# AQkQAQQwHAYJKoZIhvcNAQkFMQ8XDTIxMDkwODE1MzcwMlowLwYJKoZIhvcNAQkE
+# MSIEIE20PR9HQCJmI3SN+6PkXUxiyh2ZhtKVjwRLJ3kXB6wBMDcGCyqGSIb3DQEJ
 # EAIvMSgwJjAkMCIEIMR0znYAfQI5Tg2l5N58FMaA+eKCATz+9lPvXbcf32H4MAsG
-# CSqGSIb3DQEBAQSCAQAA/EWlu3ocQy72L0SwcKuQkFtNVYXh89OhZBOJvSUOQ6HE
-# XzQ3akbOEQ3pI5zfXJ9A8xkyzPXD+ZgLrQwmGLzMzIqverRV4F4U5b9zbNWAfMfR
-# ClGBxTUdrXm0ttD58Rk1hLM7EEm4kFLQa6kqL7aHNoICutNG9O/robJYTCg/ZJ/7
-# zh9xSONUaipOcoBtFWpz3PllhAGsOrP0Rf0cTOuJi2LsIe8U+KCuX+dytL+KVYSz
-# evS2az2Cxsiw4lV057KpN9f6yPY/KpuMg7zuo1bMLDdSRz36DDtSF3w7qeRbxGyI
-# BZwnU4+BbJLZULNxtPWtnNLYIO+i/0rPJdSglK9J
+# CSqGSIb3DQEBAQSCAQBE7MG9jDcuBbfcrn1715EMv6R9lRlu5l2MDR0XgY0+x4h/
+# snCjctOxTPbvj5ymfrZnEll96T9oWkJ2XQusNK3W/Vo3pTPmWKxTqcJDf9tAIOrE
+# B8Cx5VhqlXR3qXUDd2r2dCdKdahW6ca+86VR56iCX0bGrotH06hXo9iIHmxIk/ib
+# CW0PDOubTmIdXKNvPYBxYZNpkr/EkHfQDYZ94HlsIrHi0cCiOQlnOJtR5pGeWTRy
+# IMWbJzT8fuMmwqAhoQr9jROsCuRWyStcYtGSN6vv5Nk404aaio+AmbGoandZoBdV
+# 11uydG8ErvU0oFufMiJlEQbKGjK436UbmW5aI80j
 # SIG # End signature block
