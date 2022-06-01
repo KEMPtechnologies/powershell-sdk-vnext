@@ -24,7 +24,7 @@ Author = 'Fabrizio Carpin'
 CompanyName = 'Kemp'
 
 # Copyright statement for this module
-Copyright = 'Copyright (c) 2002-<<COPYRIGHT_YEAR>> Progress Software Corporation and/or its subsidiaries and affiliates. All Rights Reserved.'
+Copyright = 'Copyright (c) 2002-<<COPYRIGHT_YEAR>> Progress Software Corporation and/or its subsidiaries or affiliates. All Rights Reserved.'
 
 # Description of the functionality provided by this module
 Description = 'Kemp Load Balancer Powershell Module'

@@ -1,9 +1,9 @@
 #
-# $Id: Kemp.LoadBalancer.Powershell.psm1 21298 2022-01-20 10:32:32Z ngrant $
+# $Id: Kemp.LoadBalancer.Powershell.psm1 21503 2022-04-29 08:31:46Z spower $
 #
 
 $ScriptDir = Split-Path -parent $MyInvocation.MyCommand.Path
-Import-Module $ScriptDir\deprecated.psm1
+#Import-Module $ScriptDir\deprecated.psm1
 
 ####################
 # MODULE VARIABLES #
@@ -46,6 +46,7 @@ $ParamReplacement = @{VSIndex = "vs"; VirtualService = "vs"; Protocol = "prot"; 
 	L7ClientTokenTimeoutSecs = "clienttokentimeout"; L7ConnectionDrainTimeoutSecs = "finalpersist";
 	AllowEmptyPosts = "allowemptyposts"; AllowEmptyHttpHeaders = "AllowEmptyHttpHeaders";
 	ForceCompleteRSMatch = "ForceFullRSMatch"; SlowStart = "slowstart"; ShareSubVSPersistance = "ShareSubVSPersist";
+    Filter = "filter"; Rule = "rule"; Enable = "enable";
 	SSHPreAuthBanner = "SSHPreAuth"; MultiHomedWui = "multihomedwui"; AllowUpdateChecks = "tethering"; LocalBindAddresses = "localbindaddrs"}
 
 $SystemRuleType = @{MatchContentRule=0; AddHeaderRule=1; DeleteHeaderRule=2; ReplaceHeaderRule=3; ModifyUrlRule=4; ReplaceBodyRule=5}
@@ -1523,6 +1524,28 @@ Function SetGetWafRulesReturnObject($xmlAnsw)
 	$ht = [ordered]@{}
 	$ht.PSTypeName = "WafRules"
 	$ht.add("WafRules", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
+Function GetNoticeReturnObject($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "NOTICE" $xmlAnsw.Response.Success.Data
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "NOTICE"
+	$ht.add("NOTICE", $data)
+
+	New-Object -TypeName PSObject -Property $ht
+}
+
+Function OWASPRulesReturnObject($xmlAnsw)
+{
+	$data = GetPSObjectFromXml "OWASPRules" $xmlAnsw.Response.Success.Data
+
+	$ht = [ordered]@{}
+	$ht.PSTypeName = "OWASPRules"
+	$ht.add("OWASPRules", $data)
 
 	New-Object -TypeName PSObject -Property $ht
 }
@@ -3058,6 +3081,8 @@ $successHandlerList = [ordered]@{
 	GetLogStatistics = (gi function:SetGetLogStatisticsReturnObject)
 
 	GetWafRules = (gi function:SetGetWafRulesReturnObject)
+	GetNotice = (gi function:GetNoticeReturnObject)
+	OWASPRules = (gi function:OWASPRulesReturnObject)
 	GetWafRulesAutoUpdateConfiguration = (gi function:SetGetWafRulesAutoUpdateConfigurationReturnObject)
 	GetWafAuditFiles = (gi function:SetGetWafAuditFilesReturnObject)
 
@@ -3210,7 +3235,7 @@ Function HandleErrorAnswer($Command2ExecClass, $xmlAnsw)
 	#
 	switch ($Command2ExecClass)
 	{
-		{ ($_ -in "GeneralCase", "NewAdcVS", "GetAdcVS_Single", "GetAdcVS_List", "SetAdcVS", "NewAdcRS", "VirtualServiceRule", "RealServerRule", "EnableDisableRS", "GetSetAdcRS", "RemoveAdcRS", "AddAdcContentRule", "RemoveAdcContentRule", "SetAdcContentRule", "GetAdcContentRule", "GetAdcServiceHealth","AdcHttpExceptions", "AdcAdaptiveHealthCheck", "AdcWafVSRules", "AddRemoveAdcWafRule", "GetLicenseAccessKey", "GetLicenseType", "GetLicenseInfo", "RequestLicenseOnline", "RequestLicenseOffline", "UpdateLicenseOnline", "UpdateLicenseOffline", "RequestLicenseOnPremise", "GetAllSecUser", "GetSingleSecUser", "GetRemoteGroup", "GetAllRemoteGroups", "GetNetworkInterface", "GetAllParameters", "GetLmNetworkInterface", "GetTlsCertificate", "GetTlsCipherSet", "GetSSODomain", "GetSSOSamlDomain", "GetSSODomainLockedUser", "SetSSODomainLockedUser", "GetSSODomainSession", "GetSSODomainQuerySession", "InstallTemplate", "ExportVSTemplate", "GetTemplate", "GetLogStatistics", "GetWafRules", "GetWafRulesAutoUpdateConfiguration", "GetWafAuditFiles", "GetGeoFQDN", "GetGeoStats", "AddGeoCluster", "SetGeoCluster", "AddNetworkVxLAN", "AddNetworkVLAN", "GetNetworkRoute", "TestNetworkRoute", "GetHosts", "GetVSTotals", "GetLdapEndpoint", "GetVpnConnection", "InstallLmAddon", "GetLmAddOn", "InstallLmPatch", "UninstallLmPatch", "GetLmPreviousFirmwareVersion", "AddSdnController", "SetSdnController", "GetSdnController", "RemoveSdnController", "GetAdcRealServer", "SetGeoFQDNSiteAddress", "GetGeoCustomLocation", "GetGeoIpRange", "TestLmGeoEnabled", "GetGeoPartnerStatus", "GetGeoIPBlacklistDatabaseConfiguration", "GetGeoIPBlocklistDatabaseConfiguration", "GetGeoIPWhitelist", "GetGeoIPAllowlist", "ExportGeoIPWhitelistDatabase","ExportGeoIPAllowlistDatabase", "GetGeoDNSSECConfiguration", "GetGeoLmMiscParameter", "GetVSPacketFilterACL", "GetPacketFilterOption", "GetGlobalPacketFilterACL", "GetLmIPConnectionLimit", "GetAzureHAConfiguration", "GetAwsHaConfiguration", "GetLmCloudHaConfiguration", "GetLmDebugInformation", "GetAslLicenseType", "GetLmVpnIkeDaemonStatus", "NewLmVpnConnection", "GetClusterStatus", "NewCluster", "GetRaidController", "GetRaidControllerDisk", "GetExtEspLogConfiguration", "GetLmLogFilesList", "GetLmLogResetFilesList", "GetLmExtendedLogFilesList", "GetLmExtendedLogResetFilesList", "GetLmApiList", "NewApiSec_curityKey", "GetApiSecurityKeys", "RemoveApiSecurityKeys", "GetAdcLimitRules", "GetClientCPSLimit", "GetClientRPSLimit", "GetClientMaxcLimit", "GetClientBandwidthLimit", "GetMode", "GetNamespace", "GetWatchTimeout", "GetContext", "GetLECertificate", "GetLEAccountInfo") } {
+		{ ($_ -in "GeneralCase", "NewAdcVS", "GetAdcVS_Single", "GetAdcVS_List", "SetAdcVS", "NewAdcRS", "VirtualServiceRule", "RealServerRule", "EnableDisableRS", "GetSetAdcRS", "RemoveAdcRS", "AddAdcContentRule", "RemoveAdcContentRule", "SetAdcContentRule", "GetAdcContentRule", "GetAdcServiceHealth","AdcHttpExceptions", "AdcAdaptiveHealthCheck", "AdcWafVSRules", "AddRemoveAdcWafRule", "GetLicenseAccessKey", "GetLicenseType", "GetLicenseInfo", "RequestLicenseOnline", "RequestLicenseOffline", "UpdateLicenseOnline", "UpdateLicenseOffline", "RequestLicenseOnPremise", "GetAllSecUser", "GetSingleSecUser", "GetRemoteGroup", "GetAllRemoteGroups", "GetNetworkInterface", "GetAllParameters", "GetLmNetworkInterface", "GetTlsCertificate", "GetTlsCipherSet", "GetSSODomain", "GetSSOSamlDomain", "GetSSODomainLockedUser", "SetSSODomainLockedUser", "GetSSODomainSession", "GetSSODomainQuerySession", "InstallTemplate", "ExportVSTemplate", "GetTemplate", "GetLogStatistics", "GetWafRules", "GetNotice", "OWASPRules", "GetWafRulesAutoUpdateConfiguration", "GetWafAuditFiles", "GetGeoFQDN", "GetGeoStats", "AddGeoCluster", "SetGeoCluster", "AddNetworkVxLAN", "AddNetworkVLAN", "GetNetworkRoute", "TestNetworkRoute", "GetHosts", "GetVSTotals", "GetLdapEndpoint", "GetVpnConnection", "InstallLmAddon", "GetLmAddOn", "InstallLmPatch", "UninstallLmPatch", "GetLmPreviousFirmwareVersion", "AddSdnController", "SetSdnController", "GetSdnController", "RemoveSdnController", "GetAdcRealServer", "SetGeoFQDNSiteAddress", "GetGeoCustomLocation", "GetGeoIpRange", "TestLmGeoEnabled", "GetGeoPartnerStatus", "GetGeoIPBlacklistDatabaseConfiguration", "GetGeoIPBlocklistDatabaseConfiguration", "GetGeoIPWhitelist", "GetGeoIPAllowlist", "ExportGeoIPWhitelistDatabase","ExportGeoIPAllowlistDatabase", "GetGeoDNSSECConfiguration", "GetGeoLmMiscParameter", "GetVSPacketFilterACL", "GetPacketFilterOption", "GetGlobalPacketFilterACL", "GetLmIPConnectionLimit", "GetAzureHAConfiguration", "GetAwsHaConfiguration", "GetLmCloudHaConfiguration", "GetLmDebugInformation", "GetAslLicenseType", "GetLmVpnIkeDaemonStatus", "NewLmVpnConnection", "GetClusterStatus", "NewCluster", "GetRaidController", "GetRaidControllerDisk", "GetExtEspLogConfiguration", "GetLmLogFilesList", "GetLmLogResetFilesList", "GetLmExtendedLogFilesList", "GetLmExtendedLogResetFilesList", "GetLmApiList", "NewApiSec_curityKey", "GetApiSecurityKeys", "RemoveApiSecurityKeys", "GetAdcLimitRules", "GetClientCPSLimit", "GetClientRPSLimit", "GetClientMaxcLimit", "GetClientBandwidthLimit", "GetMode", "GetNamespace", "GetWatchTimeout", "GetContext", "GetLECertificate", "GetLEAccountInfo") } {
 			$errMsg = $xmlAnsw.Response.Error
 		}
 
@@ -6446,6 +6471,10 @@ Function Set-SSODomain
 		[string]$oidc_app_id,
 
 		[Parameter(ValueFromPipelineByPropertyName=$true)]
+		[Alias("OIDCRedirectURI")]
+		[string]$oidc_redirect_uri,
+
+		[Parameter(ValueFromPipelineByPropertyName=$true)]
 		[Alias("OIDCAuthEpURL")]
 		[string]$oidc_auth_ep_url,
 
@@ -9349,6 +9378,8 @@ Function Set-AdcVirtualService
 
 		[string]$ServerFbaPost,
 
+		[string]$TokenServerFqdn,
+
 		[string]$AddAuthHeader,
 
 		[bool]$VerifyBearer,
@@ -9994,6 +10025,8 @@ Function Set-AdcSubVirtualService
 		[string]$ServerFbaPath,
 
 		[string]$ServerFbaPost,
+
+		[string]$TokenServerFqdn,
 
 		[string]$AddAuthHeader,
 
@@ -16206,6 +16239,89 @@ Function Get-WafRules
 }
 Export-ModuleMember -function Get-WafRules, ListWafRules
 
+Function Get-Notice
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "notice" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetNotice" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Get-Notice
+
+Function OWASPRules
+{
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[int]$VSIndex = 0,
+		[string]$Filter = "",
+		[string]$Rule = "",
+		[int]$Enable = 0,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "owasprules" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "OWASPRules" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function OWASPRules
+
 Function New-WafCustomRuleData
 {
 	[cmdletbinding(DefaultParameterSetName='Credential')]
@@ -20054,6 +20170,8 @@ Function Set-GeoMiscParameter
 		[bool]$PerZoneSOA,
 
 		[bool]$DClustUnavail,
+
+		[bool]$EDNSECS,
 
 		[String]$GlueIP,
 
