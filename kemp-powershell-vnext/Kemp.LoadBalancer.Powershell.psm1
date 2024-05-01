@@ -1,5 +1,5 @@
 #
-# $Id: Kemp.LoadBalancer.Powershell.psm1 21960 2023-02-14 08:38:21Z akolganov $
+# $Id: Kemp.LoadBalancer.Powershell.psm1 22392 2024-03-28 09:17:15Z spower $
 #
 
 $ScriptDir = Split-Path -parent $MyInvocation.MyCommand.Path
@@ -6583,9 +6583,12 @@ Function Set-SSODomainUnlockUser
 {
 	[cmdletbinding(DefaultParameterSetName='Credential')]
 	Param(
-		[Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+		[Parameter(Mandatory=$false,ValueFromPipeline=$true)]
 		[Alias("Name")]
 		[string]$Domain,
+
+		[Parameter(Mandatory=$false,ValueFromPipeline=$true)]
+		[int]$DomainId,
 
 		[Parameter(Mandatory=$true,ValueFromPipeline=$true)]
 		[string]$Users,
@@ -9040,6 +9043,14 @@ Function New-AdcVirtualService
 
 		[bool]$HTTPReschedule,
 
+		[int]$AdaptiveInterval,
+
+		[string]$AdaptiveURL,
+
+		[int]$AdaptivePort,
+
+		[int]$AdaptiveMinPercent,
+
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
 
@@ -9495,6 +9506,14 @@ Function Set-AdcVirtualService
 		[int32]$ResponseRemapMsgFormat,
 
 		[bool]$HTTPReschedule,
+
+		[int]$AdaptiveInterval,
+
+		[string]$AdaptiveURL,
+
+		[int]$AdaptivePort,
+
+		[int]$AdaptiveMinPercent,
 
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
@@ -10214,6 +10233,14 @@ Function Set-AdcSubVirtualService
 		[int32]$ResponseRemapMsgFormat,
 
 		[bool]$HTTPReschedule,
+
+		[int]$AdaptiveInterval,
+
+		[string]$AdaptiveURL,
+
+		[int]$AdaptivePort,
+
+		[int]$AdaptiveMinPercent,
 
 		[ValidateNotNullOrEmpty()]
 		[string]$LoadBalancer = $LoadBalancerAddress,
@@ -13981,6 +14008,48 @@ Function Remove-SecApiKey
 	}
 }
 Export-ModuleMember -function Remove-SecApiKey
+
+Function Set-LMCommSecret
+{	
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[String]$Secret,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "setlmcommsecret" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
+}
+Export-ModuleMember -function Set-LMCommSecret
 
 # ==================================================
 # endregion SECURITY
@@ -22614,6 +22683,10 @@ Function Install-LmPatch
 		[ValidateRange(3, 65530)]
 		[int]$LBPort = $LBAccessPort,
 
+		[ValidateNotNullOrEmpty()]
+		[bool]$Confirm,
+
+
 		[Parameter(ParameterSetName="Credential")]
 			[ValidateNotNullOrEmpty()]
 			[System.Management.Automation.Credential()]$Credential = $script:cred,
@@ -22630,6 +22703,10 @@ Function Install-LmPatch
 
 	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	if($Confirm){
+		$params.Add("confirm", 1)
+	}
 
 	try {
 		$response = SendCmdToLm -Command "installpatch" -ParameterValuePair $params -File $Path -ConnParams $ConnParams
@@ -26495,7 +26572,43 @@ Export-ModuleMember -function Export-LmRouteVpnRoutes
 
 Function Register-LEAccount
 {
-	Register-ACMEAccount @args -LegacyCall $true -AcmeType 1
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()]
+		[String]$Email,
+
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "registerleaccount" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
 }
 Export-ModuleMember -function Register-LEAccount
 
@@ -26551,7 +26664,48 @@ Export-ModuleMember -function Register-ACMEAccount
 
 Function Get-LEAccount
 {
-  Get-ACMEAccount @args -LegacyCall $true -AcmeType 1
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[ValidateScript({Test-Path $_})]
+		[string]$Path,
+
+		[ValidateNotNullOrEmpty()]
+		[String]$Password,
+
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "fetchleaccount" -ParameterValuePair $params -File $Path -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
 }
 Export-ModuleMember -function Get-LEAccount
 
@@ -26610,7 +26764,131 @@ Export-ModuleMember -function Get-ACMEAccount
 
 Function Request-NewLECertificate
 {
-	Request-NewACMECertificate @args -LegacyCall $true -AcmeType 1
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[String]$Cert,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[String]$CommonName,
+
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[String]$VID,
+
+		[ValidateNotNullOrEmpty()]
+		[String]$Country,
+
+		[ValidateNotNullOrEmpty()]
+		[String]$State,
+
+		[ValidateNotNullOrEmpty()]
+		[String]$City,
+
+		[ValidateNotNullOrEmpty()]
+		[String]$Company,
+
+		[ValidateNotNullOrEmpty()]
+		[String]$Organization,
+
+		[ValidateNotNullOrEmpty()]
+		[String]$Email,
+
+		[ValidateSet("2048", "4096")]
+		[String]$KeySize,
+
+		[ValidateSet("yes", "no")]
+		[String]$EllipticCurve,
+
+		[ValidateNotNullOrEmpty()]
+		[String]$SAN1,
+		[ValidateNotNullOrEmpty()]
+		[String]$SAN2,
+		[ValidateNotNullOrEmpty()]
+		[String]$SAN3,
+		[ValidateNotNullOrEmpty()]
+		[String]$SAN4,
+		[ValidateNotNullOrEmpty()]
+		[String]$SAN5,
+		[ValidateNotNullOrEmpty()]
+		[String]$SAN6,
+		[ValidateNotNullOrEmpty()]
+		[String]$SAN7,
+		[ValidateNotNullOrEmpty()]
+		[String]$SAN8,
+		[ValidateNotNullOrEmpty()]
+		[String]$SAN9,
+		[ValidateNotNullOrEmpty()]
+		[String]$SAN10,
+
+		[ValidateNotNullOrEmpty()]
+		[String]$VID1,
+		[ValidateNotNullOrEmpty()]
+		[String]$VID2,
+		[ValidateNotNullOrEmpty()]
+		[String]$VID3,
+		[ValidateNotNullOrEmpty()]
+		[String]$VID4,
+		[ValidateNotNullOrEmpty()]
+		[String]$VID5,
+		[ValidateNotNullOrEmpty()]
+		[String]$VID6,
+		[ValidateNotNullOrEmpty()]
+		[String]$VID7,
+		[ValidateNotNullOrEmpty()]
+		[String]$VID8,
+		[ValidateNotNullOrEmpty()]
+		[String]$VID9,
+		[ValidateNotNullOrEmpty()]
+		[String]$VID10,
+
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	if ($CommonName) {
+		$params.Remove("CommonName")
+		$params.Add("cn", $CommonName)
+	}
+	if ($KeySize) {
+		$params.Remove("KeySize")
+		$params.Add("key_size", $KeySize)
+	}
+	if ($EllipticCurve) {
+		$params.Remove("EllipticCurve")
+		$params.Add("ec", $EllipticCurve)
+	}
+
+	try {
+		$response = SendCmdToLm -Command "addlecert" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
 }
 Export-ModuleMember -function Request-NewLECertificate
 
@@ -26635,6 +26913,12 @@ Function Request-NewACMECertificate
 		[Parameter(Mandatory=$true)]
 		[ValidateNotNullOrEmpty()]
 		[String]$VID,
+
+		[ValidateNotNullOrEmpty()]
+		[String]$Dnsapi,
+
+		[ValidateNotNullOrEmpty()]
+		[String]$Dnsapiparams,
 
 		[ValidateNotNullOrEmpty()]
 		[String]$Country,
@@ -26754,7 +27038,44 @@ Export-ModuleMember -function Request-NewACMECertificate
 
 Function Remove-LECertificate
 {
-	Remove-ACMECertificate @args -LegacyCall $true -AcmeType 1
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[String]$Cert,
+
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "dellecert" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
 }
 Export-ModuleMember -function Remove-LECertificate
 
@@ -26811,7 +27132,44 @@ Export-ModuleMember -function Remove-ACMECertificate
 
 Function Request-RenewLECertificate
 {
-	Request-RenewACMECertificate @args -LegacyCall $true -AcmeType 1
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[String]$Cert,
+
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "renewlecert" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GeneralCase" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
 }
 Export-ModuleMember -function Request-RenewLECertificate
 
@@ -26868,7 +27226,49 @@ Export-ModuleMember -function Request-RenewACMECertificate
 
 Function Get-LECertificate
 {
-	Get-ACMECertificate @args -LegacyCall $true -AcmeType 1
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()]
+		[String]$Cert,
+
+		[ValidateNotNullOrEmpty()] 
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		if ($Cert) {
+			$cmd = "getlecert"
+		}
+		else {
+			$cmd = "listlecert"
+		}
+		$response = SendCmdToLm -Command "$cmd" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetLECertificate" -LMResponse $response -AdditionalData $Cert
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
 }
 Export-ModuleMember -function Get-LECertificate
 
@@ -26930,7 +27330,38 @@ Export-ModuleMember -function Get-ACMECertificate
 
 Function Get-LERenewPeriod
 {
-	Get-ACMERenewPeriod @args -LegacyCall $true -AcmeType 1
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$lma = GetLmParameter "renewperiod" $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	if ($lma.ReturnCode -ne 200) {
+		return $lma
+	}
+	# Convert it in PS object
+	$tmp = [ordered]@{}
+	$tmp.Add("RenewPeriod", $lma.Data.renewperiod)
+	$dataObj = New-Object -TypeName PSObject -Prop $tmp
+	setKempAPIReturnObject 200 "Command successfully executed" $dataObj
 }
 Export-ModuleMember -function Get-LERenewPeriod
 
@@ -26986,7 +27417,33 @@ Export-ModuleMember -function Get-ACMERenewPeriod
 
 Function Set-LERenewPeriod
 {
-	Set-ACMERenewPeriod @args -LegacyCall $true -AcmeType 1
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[int]$RenewPeriod,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	SetLmParameter "renewperiod" $RenewPeriod $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 }
 Export-ModuleMember -function Set-LERenewPeriod
 
@@ -27038,7 +27495,38 @@ Export-ModuleMember -function Set-ACMERenewPeriod
 
 Function Get-LEDirectoryURL
 {
-	Get-ACMEDirectoryURL @args -LegacyCall $true -AcmeType 1
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$lma = GetLmParameter "directoryurl" $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	if ($lma.ReturnCode -ne 200) {
+		return $lma
+	}
+	# Convert it in PS object
+	$tmp = [ordered]@{}
+	$tmp.Add("DirectoryURL", $lma.Data.directoryurl)
+	$dataObj = New-Object -TypeName PSObject -Prop $tmp
+	setKempAPIReturnObject 200 "Command successfully executed" $dataObj
 }
 Export-ModuleMember -function Get-LEDirectoryURL
 
@@ -27094,7 +27582,34 @@ Export-ModuleMember -function Get-ACMEDirectoryURL
 
 Function Set-LEDirectoryURL
 {
-	Set-ACMEDirectoryURL @args -LegacyCall $true -AcmeType 1
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[Parameter(Mandatory=$true)]
+		[ValidateNotNullOrEmpty()]
+		[string]$DirectoryURL,
+
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	SetLmParameter "directoryurl" $DirectoryURL $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
 }
 Export-ModuleMember -function Set-LEDirectoryURL
 
@@ -27147,7 +27662,40 @@ Export-ModuleMember -function Set-ACMEDirectoryURL
 
 Function Get-LEAccountInfo
 {
-	Get-ACMEAccountInfo @args -LegacyCall $true -AcmeType 1
+	[cmdletbinding(DefaultParameterSetName='Credential')]
+	Param(
+		[ValidateNotNullOrEmpty()]
+		[string]$LoadBalancer = $LoadBalancerAddress,
+
+		[ValidateNotNullOrEmpty()]
+		[ValidateRange(3, 65530)]
+		[int]$LBPort = $LBAccessPort,
+
+		[Parameter(ParameterSetName="Credential")]
+			[ValidateNotNullOrEmpty()]
+			[System.Management.Automation.Credential()]$Credential = $script:cred,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$CertificateStoreLocation = $script:CertificateStoreLocation,
+
+		[Parameter(ParameterSetName="Certificate")]
+			[ValidateNotNullOrEmpty()]
+			[String]$SubjectCN = $script:SubjectCN
+	)
+	validateCommonInputParams $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+
+	$ConnParams = getConnParameters $LoadBalancer $LBPort $Credential $SubjectCN $CertificateStoreLocation
+	$params = ConvertBoundParameters -hashtable $psboundparameters
+
+	try {
+		$response = SendCmdToLm -Command "leaccountinfo" -ParameterValuePair $params -ConnParams $ConnParams
+		HandleLmAnswer -Command2ExecClass "GetLEAccountInfo" -LMResponse $response
+	}
+	catch {
+		$errMsg = $_.Exception.Message
+		setKempAPIReturnObject 400 "$errMsg" $null
+	}
 }
 Export-ModuleMember -function Get-LEAccountInfo
 
